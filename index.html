@@ -1,0 +1,2697 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-[#1e1e1e] text-gray-200 select-none" id="html-root">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CadTec 2D Web Engine Pro - Layers & Clean UI</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- html2canvas CDN para captura de pantalla completa -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cadBg: 'var(--cad-bg)',
+            cadPanel: 'var(--cad-panel)',
+            cadHeader: 'var(--cad-header)',
+            cadBorder: 'var(--cad-border)',
+            cadAccent: '#007acc',
+            cadAccentHover: '#0098ff',
+            cadSnap: '#2ecc71',
+            cadGrip: '#3498db'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --cad-bg: #1e1e1e;
+      --cad-panel: #252526;
+      --cad-header: #2d2d2d;
+      --cad-border: #3e3e42;
+      --text-color: #e5e7eb;
+      --text-muted: #9ca3af;
+      --cli-bg: #181818;
+      --canvas-bg: #1e1e1e;
+
+      --color-descuento: #ff2a6d;
+      --shadow-descuento: drop-shadow(0 0 6px rgba(255,42,109,0.4));
+      --color-neto: #00ff66;
+      --shadow-neto: drop-shadow(0 0 6px rgba(0,255,102,0.4));
+      --color-area: #ffe600;
+      --shadow-area: drop-shadow(0 0 6px rgba(255,230,0,0.4));
+      --color-perimetro: #00e5ff;
+      --shadow-perimetro: drop-shadow(0 0 6px rgba(0,229,255,0.4));
+    }
+
+    .light-theme {
+      --cad-bg: #f8fafc;
+      --cad-panel: #ffffff;
+      --cad-header: #e2e8f0;
+      --cad-border: #cbd5e1;
+      --text-color: #0f172a;
+      --text-muted: #475569;
+      --cli-bg: #f1f5f9;
+      --canvas-bg: #f8fafc;
+
+      --color-descuento: #991b1b;
+      --shadow-descuento: none;
+      --color-neto: #15803d;
+      --shadow-neto: none;
+      --color-area: #b45309;
+      --shadow-area: none;
+      --color-perimetro: #0e7490;
+      --shadow-perimetro: none;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--cad-bg); }
+    ::-webkit-scrollbar-thumb { background: var(--cad-border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #007acc; }
+    canvas { cursor: crosshair; touch-action: none; }
+    .tool-btn { transition: all 0.15s ease; }
+    .tool-btn.active {
+      background-color: #007acc !important;
+      color: #ffffff !important;
+      box-shadow: 0 0 8px rgba(0, 122, 204, 0.5);
+    }
+    .toggle-chip.on {
+      background-color: rgba(16, 185, 129, 0.2);
+      border-color: #10b981;
+      color: #10b981;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col overflow-hidden font-mono bg-[var(--cad-bg)] text-[var(--text-color)] transition-colors duration-200">
+
+  <!-- Header / Main Toolbar -->
+  <header class="bg-[var(--cad-header)] border-b border-[var(--cad-border)] px-3 py-1.5 flex items-center justify-between z-10 shadow-md flex-wrap lg:flex-nowrap gap-2">
+    <div class="flex items-center space-x-2.5 shrink-0">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-700 flex items-center justify-center font-bold text-white text-sm shadow-md">
+        C
+      </div>
+      <div>
+        <h1 id="app-title-text" class="text-sm font-black tracking-wider leading-none transition-all duration-200" style="color: #ffffff; text-shadow: 0 0 8px rgba(255,255,255,0.6);">CadTec 2D</h1>
+      </div>
+    </div>
+
+    <!-- Drawing Tools -->
+    <div class="flex items-center space-x-1 bg-[var(--cad-panel)] p-1 rounded-lg border border-[var(--cad-border)] overflow-x-auto max-w-full">
+      <button id="tool-select" onclick="setTool('SELECT')" class="tool-btn active px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 hover:bg-[var(--cad-border)] shrink-0" title="Seleccionar">
+        <i class="fa-solid fa-mouse-pointer text-[10px]"></i><span>Seleccionar</span>
+      </button>
+      <div class="h-4 w-px bg-[var(--cad-border)] mx-0.5 shrink-0"></div>
+      <button id="tool-line" onclick="setTool('LINE')" class="tool-btn px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 hover:bg-[var(--cad-border)] shrink-0" title="Línea">
+        <i class="fa-solid fa-slash text-[10px]"></i><span>Línea</span>
+      </button>
+      <button id="tool-rect" onclick="setTool('RECT')" class="tool-btn px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 hover:bg-[var(--cad-border)] shrink-0" title="Rectángulo">
+        <i class="fa-regular fa-square text-[10px]"></i><span>Rectángulo</span>
+      </button>
+      <button id="tool-circle" onclick="setTool('CIRCLE')" class="tool-btn px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 hover:bg-[var(--cad-border)] shrink-0" title="Círculo">
+        <i class="fa-regular fa-circle text-[10px]"></i><span>Círculo</span>
+      </button>
+      <button id="tool-arc" onclick="setTool('ARC')" class="tool-btn px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 hover:bg-[var(--cad-border)] shrink-0" title="Arco">
+        <i class="fa-solid fa-bezier-curve text-[10px]"></i><span>Arco</span>
+      </button>
+      <button id="tool-text" onclick="setTool('TEXT')" class="tool-btn px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 hover:bg-[var(--cad-border)] shrink-0" title="Texto">
+        <i class="fa-solid fa-font text-[10px]"></i><span>Texto</span>
+      </button>
+      <div class="h-4 w-px bg-[var(--cad-border)] mx-0.5 shrink-0"></div>
+      <button id="tool-trim" onclick="setTool('TRIM')" class="tool-btn px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 hover:bg-[var(--cad-border)] shrink-0" title="Recortar">
+        <i class="fa-solid fa-scissors text-[10px]"></i><span>Recortar</span>
+      </button>
+      <button id="tool-move" onclick="setTool('MOVE')" class="tool-btn px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 hover:bg-[var(--cad-border)] shrink-0" title="Mover">
+        <i class="fa-solid fa-arrows-up-down-left-right text-[10px]"></i><span>Mover</span>
+      </button>
+      <button id="tool-copy" onclick="setTool('COPY')" class="tool-btn px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 hover:bg-[var(--cad-border)] shrink-0" title="Copiar">
+        <i class="fa-regular fa-copy text-[10px]"></i><span>Copiar</span>
+      </button>
+      <div class="h-4 w-px bg-[var(--cad-border)] mx-0.5 shrink-0"></div>
+      <button id="tool-pan" onclick="setTool('PAN')" class="tool-btn px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 hover:bg-[var(--cad-border)] shrink-0" title="Pan">
+        <i class="fa-solid fa-hand text-[10px]"></i><span>Pan</span>
+      </button>
+    </div>
+
+    <!-- Actions & Storage -->
+    <div class="flex items-center space-x-1 shrink-0">
+      <button id="theme-toggle" onclick="toggleTheme()" class="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded text-[11px] flex items-center space-x-1 shadow transition">
+        <i id="theme-icon" class="fa-solid fa-sun text-[10px]"></i><span id="theme-text">Claro</span>
+      </button>
+      <div class="h-4 w-px bg-[var(--cad-border)] mx-0.5"></div>
+      <button onclick="undo()" class="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-[11px] font-semibold flex items-center space-x-1 shadow transition" title="Deshacer (Ctrl+Z)">
+        <i class="fa-solid fa-rotate-left text-[10px]"></i><span>Deshacer</span>
+      </button>
+      <button onclick="saveProjectJSON()" class="px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded text-[11px] font-semibold flex items-center space-x-1 shadow transition">
+        <i class="fa-solid fa-floppy-disk text-[10px]"></i><span>Guardar</span>
+      </button>
+      <button onclick="triggerLoadProject()" class="px-2 py-1 bg-indigo-700 hover:bg-indigo-600 text-white rounded text-[11px] font-semibold flex items-center space-x-1 shadow transition">
+        <i class="fa-solid fa-folder-open text-[10px]"></i><span>Cargar</span>
+      </button>
+      <input type="file" id="file-input-project" accept=".json" class="hidden" onchange="loadProjectFile(event)">
+      <button onclick="exportSVG()" class="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 text-white rounded text-[11px] font-semibold flex items-center space-x-1 shadow transition" title="Exportar SVG completo">
+        <i class="fa-solid fa-file-code text-[10px]"></i><span>SVG</span>
+      </button>
+      <button onclick="exportImagePNG()" class="px-2 py-1 bg-purple-700 hover:bg-purple-600 text-white rounded text-[11px] font-semibold flex items-center space-x-1 shadow transition" title="Guardar Captura Limpia Alta Resolución">
+        <i class="fa-solid fa-file-image text-[10px]"></i><span>Imagen</span>
+      </button>
+      <button onclick="clearCanvas()" class="px-2 py-1 bg-red-700 hover:bg-red-600 text-white rounded text-[11px] font-semibold flex items-center space-x-1 shadow transition">
+        <i class="fa-solid fa-broom text-[10px]"></i><span>Limpiar</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace Layout -->
+  <div class="flex-1 flex overflow-hidden relative">
+    <div class="flex-1 relative bg-[var(--canvas-bg)] overflow-hidden" id="workspace">
+      <canvas id="cadCanvas" class="w-full h-full block"></canvas>
+      <div id="tool-indicator" class="absolute top-3 left-3 bg-[var(--cad-panel)]/90 backdrop-blur border border-[var(--cad-border)] px-2.5 py-1 rounded-lg shadow-lg text-[11px] font-mono text-[var(--text-color)] flex items-center space-x-2 z-10">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span id="active-tool-text">HERRAMIENTA: Seleccionar</span>
+      </div>
+      <div id="dynamic-input" class="absolute hidden bg-[var(--cad-panel)]/95 backdrop-blur border border-amber-500 text-[var(--text-color)] px-2.5 py-1 text-xs font-mono rounded shadow-xl pointer-events-none z-50 transform translate-x-3 translate-y-3">
+        Distancia: <span id="dyn-val" class="font-extrabold text-amber-500 text-xs">0.00</span> m
+      </div>
+      <div id="quick-measure" class="absolute hidden bg-[var(--cad-panel)]/90 backdrop-blur text-cyan-400 px-2 py-0.5 rounded text-[11px] font-mono font-bold pointer-events-none z-40 border border-cyan-500/50 transform -translate-x-1/2 -translate-y-full -mt-2 shadow-lg"></div>
+      <div id="toast-notification" class="absolute bottom-5 left-1/2 transform -translate-x-1/2 bg-[var(--cad-panel)] border border-cadAccent text-[var(--text-color)] px-3 py-1.5 rounded-lg shadow-2xl text-xs font-sans flex items-center space-x-2 transition-all duration-300 opacity-0 pointer-events-none z-50">
+        <i id="toast-icon" class="fa-solid fa-info-circle text-cadAccent text-xs"></i>
+        <span id="toast-message">Mensaje del sistema</span>
+      </div>
+    </div>
+
+    <!-- Right Side Properties Inspector -->
+    <aside class="w-80 bg-[var(--cad-panel)] border-l border-[var(--cad-border)] flex flex-col shadow-xl z-10">
+      <div class="px-3 py-2 border-b border-[var(--cad-border)] bg-[var(--cad-header)] flex items-center justify-between shrink-0">
+        <h2 class="text-[11px] font-bold text-[var(--text-color)] tracking-wider uppercase flex items-center space-x-1.5">
+          <i class="fa-solid fa-sliders text-cadAccent text-xs"></i><span>Inspector de Propiedades</span>
+        </h2>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-2.5 space-y-2.5 text-xs" id="sidebar-container">
+
+        <!-- MÓDULO GENERAL -->
+        <div class="space-y-1.5">
+          <button onclick="toggleSection('sec-general-content', 'sec-general-icon')" class="w-full flex justify-between items-center text-[10px] font-extrabold text-[var(--text-color)] uppercase tracking-wider hover:text-cadAccent transition">
+            <span class="flex items-center space-x-1.5"><i class="fa-solid fa-chart-pie text-cyan-400 text-xs"></i><span>Resumen General</span></span>
+            <i id="sec-general-icon" class="fa-solid fa-chevron-right text-xs text-[var(--text-muted)]"></i>
+          </button>
+          <div id="sec-general-content" class="bg-[var(--cad-bg)] p-2 rounded-lg border border-[var(--cad-border)] shadow-md hidden">
+            <div class="grid grid-cols-2 gap-1.5 text-[10px]">
+              <div class="bg-[var(--cad-panel)] p-1.5 rounded border border-[var(--cad-border)] flex items-center justify-between">
+                <div><span class="text-[9px] text-[var(--text-muted)] font-medium block">Figuras</span><span id="prop-total-figures" class="font-black text-cadAccent text-sm">0</span></div>
+                <i class="fa-solid fa-shapes text-cadAccent/40 text-base"></i>
+              </div>
+              <div class="bg-[var(--cad-panel)] p-1.5 rounded border border-[var(--cad-border)] flex items-center justify-between">
+                <div><span class="text-[9px] text-[var(--text-muted)] font-medium block">Textos</span><span id="prop-total-texts" class="font-black text-cyan-400 text-sm">0</span></div>
+                <i class="fa-solid fa-font text-cyan-400/40 text-base"></i>
+              </div>
+              <div class="bg-[var(--cad-panel)] p-1.5 rounded border border-[var(--cad-border)] flex items-center justify-between">
+                <div><span class="text-[9px] text-[var(--text-muted)] font-medium block">Selección</span><span id="prop-selected-count" class="font-black text-emerald-400 text-sm">0</span></div>
+                <i class="fa-solid fa-check-double text-emerald-400/40 text-base"></i>
+              </div>
+              <div class="bg-[var(--cad-panel)] p-1.5 rounded border border-[var(--cad-border)] flex items-center justify-between">
+                <div><span class="text-[9px] text-[var(--text-muted)] font-medium block">Lados Sel.</span><span id="prop-selected-sides" class="font-black text-amber-400 text-sm">0</span></div>
+                <i class="fa-solid fa-vector-square text-amber-400/40 text-base"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MÓDULO: DESCUENTO DE VEREDA -->
+        <div id="mod-descuento-vereda" class="space-y-1.5 border-t border-[var(--cad-border)] pt-2">
+          <button onclick="toggleSection('sec-vereda-content', 'sec-vereda-icon')" class="w-full flex items-center justify-between text-[10px] font-extrabold text-[var(--text-color)] uppercase tracking-wider hover:text-cadAccent transition">
+            <span class="flex items-center space-x-1.5"><i class="fa-solid fa-calculator text-rose-500 text-xs"></i><span>Descuento de Vereda</span></span>
+            <i id="sec-vereda-icon" class="fa-solid fa-chevron-right text-xs text-[var(--text-muted)]"></i>
+          </button>
+          <div id="sec-vereda-content" class="bg-[var(--cad-bg)] p-2 rounded-lg border border-[var(--cad-border)] space-y-2 shadow-lg hidden">
+            <div class="overflow-x-auto rounded border border-[var(--cad-border)] shadow-sm">
+              <table class="w-full text-left text-[11px] border-collapse">
+                <thead>
+                  <tr class="bg-[var(--cad-header)] text-[var(--text-color)] border-b border-[var(--cad-border)]">
+                    <th class="p-1 font-extrabold text-[10px]">Descripción</th>
+                    <th class="p-1 font-extrabold text-[10px] text-center w-12">Cant.</th>
+                    <th class="p-1 font-extrabold text-[10px] text-right">Área</th>
+                    <th class="p-1 font-extrabold text-[10px] text-right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[var(--cad-border)] text-[var(--text-color)] font-medium">
+                  <tr>
+                    <td class="p-1 text-[11px] whitespace-nowrap">Poste de concreto</td>
+                    <td class="p-0.5 text-center"><input type="number" min="0" value="0" data-area="0.05" oninput="calcularDescuentoVereda()" class="vereda-input w-10 text-center bg-[var(--cad-panel)] border border-[var(--cad-border)] rounded text-[11px] font-bold text-[var(--color-descuento)] font-mono focus:outline-none focus:border-rose-500 py-0.5"></td>
+                    <td class="p-1 text-right font-mono text-[var(--text-muted)]">0.05</td>
+                    <td class="p-1 text-right font-mono font-bold text-[var(--color-descuento)] subtotal-val text-[11px]">0.00</td>
+                  </tr>
+                  <tr>
+                    <td class="p-1 text-[11px] whitespace-nowrap">Poste de fierro</td>
+                    <td class="p-0.5 text-center"><input type="number" min="0" value="0" data-area="0.03" oninput="calcularDescuentoVereda()" class="vereda-input w-10 text-center bg-[var(--cad-panel)] border border-[var(--cad-border)] rounded text-[11px] font-bold text-[var(--color-descuento)] font-mono focus:outline-none focus:border-rose-500 py-0.5"></td>
+                    <td class="p-1 text-right font-mono text-[var(--text-muted)]">0.03</td>
+                    <td class="p-1 text-right font-mono font-bold text-[var(--color-descuento)] subtotal-val text-[11px]">0.00</td>
+                  </tr>
+                  <tr>
+                    <td class="p-1 text-[11px] whitespace-nowrap">Tapa de agua</td>
+                    <td class="p-0.5 text-center"><input type="number" min="0" value="0" data-area="0.08" oninput="calcularDescuentoVereda()" class="vereda-input w-10 text-center bg-[var(--cad-panel)] border border-[var(--cad-border)] rounded text-[11px] font-bold text-[var(--color-descuento)] font-mono focus:outline-none focus:border-rose-500 py-0.5"></td>
+                    <td class="p-1 text-right font-mono text-[var(--text-muted)]">0.08</td>
+                    <td class="p-1 text-right font-mono font-bold text-[var(--color-descuento)] subtotal-val text-[11px]">0.00</td>
+                  </tr>
+                  <tr>
+                    <td class="p-1 text-[11px] whitespace-nowrap">Tapa de desagüe</td>
+                    <td class="p-0.5 text-center"><input type="number" min="0" value="0" data-area="0.23" oninput="calcularDescuentoVereda()" class="vereda-input w-10 text-center bg-[var(--cad-panel)] border border-[var(--cad-border)] rounded text-[11px] font-bold text-[var(--color-descuento)] font-mono focus:outline-none focus:border-rose-500 py-0.5"></td>
+                    <td class="p-1 text-right font-mono text-[var(--text-muted)]">0.23</td>
+                    <td class="p-1 text-right font-mono font-bold text-[var(--color-descuento)] subtotal-val text-[11px]">0.00</td>
+                  </tr>
+                  <tr>
+                    <td class="p-1 text-[11px] whitespace-nowrap">Murete de fibra</td>
+                    <td class="p-0.5 text-center"><input type="number" min="0" value="0" data-area="0.03" oninput="calcularDescuentoVereda()" class="vereda-input w-10 text-center bg-[var(--cad-panel)] border border-[var(--cad-border)] rounded text-[11px] font-bold text-[var(--color-descuento)] font-mono focus:outline-none focus:border-rose-500 py-0.5"></td>
+                    <td class="p-1 text-right font-mono text-[var(--text-muted)]">0.03</td>
+                    <td class="p-1 text-right font-mono font-bold text-[var(--color-descuento)] subtotal-val text-[11px]">0.00</td>
+                  </tr>
+                  <tr>
+                    <td class="p-1 text-[11px] whitespace-nowrap">Tapa pozo a tierra</td>
+                    <td class="p-0.5 text-center"><input type="number" min="0" value="0" data-area="0.12" oninput="calcularDescuentoVereda()" class="vereda-input w-10 text-center bg-[var(--cad-panel)] border border-[var(--cad-border)] rounded text-[11px] font-bold text-[var(--color-descuento)] font-mono focus:outline-none focus:border-rose-500 py-0.5"></td>
+                    <td class="p-1 text-right font-mono text-[var(--text-muted)]">0.12</td>
+                    <td class="p-1 text-right font-mono font-bold text-[var(--color-descuento)] subtotal-val text-[11px]">0.00</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="space-y-1.5 pt-0.5">
+              <div class="flex justify-between items-center text-xs bg-[var(--cad-panel)] p-2 rounded border border-rose-500/40 shadow-sm">
+                <span class="text-[var(--text-muted)] font-bold text-xs">Área Total a Descontar:</span>
+                <span class="font-black text-[var(--color-descuento)] font-mono text-sm [filter:var(--shadow-descuento)]"><span id="lbl-total-descuento">0.00</span> m²</span>
+              </div>
+              <div class="flex justify-between items-center text-xs bg-[var(--cad-panel)] p-2 rounded border border-emerald-500/40 shadow-sm">
+                <span class="text-[var(--text-muted)] font-bold text-xs">Área Final Neta:</span>
+                <span class="font-black text-[var(--color-neto)] font-mono text-sm [filter:var(--shadow-neto)]"><span id="lbl-area-neto">0.00</span> m²</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GEOMETRÍA TOPOLÓGICA -->
+        <div id="geometry-properties-panel" class="space-y-1.5 border-t border-[var(--cad-border)] pt-2">
+          <button onclick="toggleSection('sec-topo-content', 'sec-topo-icon')" class="w-full flex items-center justify-between text-[10px] font-extrabold text-[var(--text-color)] uppercase tracking-wider hover:text-cadAccent transition">
+            <span class="flex items-center space-x-1.5"><i class="fa-solid fa-draw-polygon text-amber-500 text-xs"></i><span>Geometría Topológica</span></span>
+            <i id="sec-topo-icon" class="fa-solid fa-chevron-down text-xs text-[var(--text-muted)]"></i>
+          </button>
+          <div id="sec-topo-content" class="bg-[var(--cad-bg)] p-2 rounded-lg border border-[var(--cad-border)] space-y-1.5 shadow-inner">
+            <div class="flex justify-between items-center text-xs bg-[var(--cad-panel)] p-2 rounded border border-amber-500/40 shadow-sm">
+              <span class="text-[var(--text-muted)] font-bold text-xs">Área Calculada:</span>
+              <span class="font-black text-[var(--color-area)] font-mono text-sm [filter:var(--shadow-area)]"><span id="prop-area">0.00</span> m²</span>
+            </div>
+            <div class="flex justify-between items-center text-xs bg-[var(--cad-panel)] p-2 rounded border border-cyan-500/40 shadow-sm">
+              <span class="text-[var(--text-muted)] font-bold text-xs">Perímetro:</span>
+              <span class="font-black text-[var(--color-perimetro)] font-mono text-sm [filter:var(--shadow-perimetro)]"><span id="prop-length">0.00</span> m</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gestión de Trazos -->
+        <div class="space-y-1.5 pt-1.5 border-t border-[var(--cad-border)]">
+          <button onclick="toggleSection('sec-gestos-content', 'sec-gestos-icon')" class="w-full flex items-center justify-between text-[10px] font-extrabold text-[var(--text-color)] uppercase tracking-wider hover:text-cadAccent transition">
+            <span class="flex items-center space-x-1.5"><i class="fa-solid fa-pen-ruler text-indigo-400 text-xs"></i><span>Gestión de Trazos</span></span>
+            <i id="sec-gestos-icon" class="fa-solid fa-chevron-down text-xs text-[var(--text-muted)]"></i>
+          </button>
+          <div id="sec-gestos-content" class="space-y-1.5 pt-0.5">
+            <div class="grid grid-cols-2 gap-1.5">
+              <button onclick="startNewFigure()" class="py-1.5 bg-cadAccent hover:bg-cadAccentHover text-white rounded text-xs font-semibold transition flex items-center justify-center space-x-1 shadow">
+                <i class="fa-solid fa-plus text-[10px]"></i><span>Nueva Figura</span>
+              </button>
+              <button onclick="closeCurrentFigure()" class="py-1.5 bg-emerald-800 hover:bg-emerald-700 text-emerald-200 rounded text-xs font-semibold border border-emerald-600/50 transition flex items-center justify-center space-x-1 shadow">
+                <i class="fa-solid fa-lock text-[10px]"></i><span>Unir / Cerrar</span>
+              </button>
+            </div>
+            <div class="bg-[var(--cad-bg)] p-2 rounded border border-[var(--cad-border)] space-y-2 shadow-inner">
+              <span class="text-[9px] font-bold text-amber-400 uppercase tracking-wider block">Personalizar Selección</span>
+              <div class="flex justify-between items-center">
+                <span class="text-[10px] text-[var(--text-muted)]">Color Contorno / Texto Área:</span>
+                <input type="color" id="style-stroke-color" value="#ffffff" onchange="applyCustomColorToSelection(this.value)" class="w-6 h-6 rounded border border-[var(--cad-border)] cursor-pointer bg-transparent">
+              </div>
+              <div class="flex flex-col space-y-0.5">
+                <div class="flex justify-between">
+                  <span class="text-[10px] text-[var(--text-muted)]">Opacidad Fondo:</span>
+                  <span id="fill-opacity-disp" class="text-amber-400 font-bold text-[10px]">5%</span>
+                </div>
+                <input type="range" id="style-fill-opacity" min="0" max="100" step="1" value="5" oninput="applyCustomOpacityToSelection(parseFloat(this.value)/100)" class="w-full accent-amber-500 cursor-pointer h-1 bg-gray-700 rounded-lg">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CONFIGURACIÓN DE TEXTO -->
+        <div id="inspector-details" class="space-y-2 border-t border-[var(--cad-border)] pt-2">
+          <div class="space-y-1.5">
+            <button onclick="toggleSection('sec-textprop-content', 'sec-textprop-icon')" class="w-full flex items-center justify-between text-[10px] font-extrabold text-[var(--text-color)] uppercase tracking-wider hover:text-cadAccent transition">
+              <span class="flex items-center space-x-1.5"><i class="fa-solid fa-font text-cyan-400 text-xs"></i><span>Configuración de Texto</span></span>
+              <i id="sec-textprop-icon" class="fa-solid fa-chevron-right text-xs text-[var(--text-muted)]"></i>
+            </button>
+            <div id="sec-textprop-content" class="bg-[var(--cad-bg)] p-2 rounded border border-[var(--cad-border)] space-y-2 hidden">
+              <div id="text-properties-panel" class="space-y-2">
+                <div class="flex flex-col space-y-0.5">
+                  <span class="text-[var(--text-muted)] text-[10px]">Contenido de Texto:</span>
+                  <input type="text" id="prop-text-content" oninput="updateSelectedTextProp('text', this.value)" class="bg-[var(--cad-panel)] border border-[var(--cad-border)] rounded px-2 py-0.5 text-xs text-[var(--text-color)] focus:outline-none focus:border-cadAccent">
+                </div>
+                <div class="flex flex-col space-y-0.5">
+                  <span class="text-[var(--text-muted)] text-[10px]">Tipografía:</span>
+                  <select id="prop-text-font" onchange="updateSelectedTextProp('fontFamily', this.value)" class="bg-[var(--cad-panel)] border border-[var(--cad-border)] rounded px-2 py-0.5 text-xs text-[var(--text-color)] focus:outline-none focus:border-cadAccent">
+                    <option value="Segoe UI" selected>Segoe UI</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Courier New">Courier New</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Verdana">Verdana</option>
+                  </select>
+                </div>
+                <div class="flex flex-col space-y-0.5">
+                  <div class="flex justify-between text-[10px]">
+                    <span class="text-[var(--text-muted)]">Tamaño de Fuente:</span>
+                    <span id="fontsize-val-disp" class="text-cadAccent font-bold">16px</span>
+                  </div>
+                  <input type="range" id="prop-text-size" min="10" max="64" step="1" value="16" oninput="updateSelectedTextProp('fontSize', parseFloat(this.value))" class="w-full accent-cadAccent cursor-pointer h-1 bg-gray-700 rounded-lg">
+                </div>
+                <div class="flex flex-col space-y-0.5">
+                  <div class="flex justify-between text-[10px]">
+                    <span class="text-[var(--text-muted)]">Estiramiento / Tracking:</span>
+                    <span id="tracking-val-disp" class="text-cadAccent font-bold">1.0x</span>
+                  </div>
+                  <input type="range" id="prop-text-tracking" min="0.5" max="2.5" step="0.1" value="1.0" oninput="updateSelectedTextProp('tracking', parseFloat(this.value))" class="w-full accent-cadAccent cursor-pointer h-1 bg-cadAccent rounded-lg">
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 pt-1 border-t border-[var(--cad-border)]">
+                  <div class="flex flex-col space-y-0.5">
+                    <span class="text-[var(--text-muted)] text-[9px]">Color Relleno:</span>
+                    <input type="color" id="prop-text-color" onchange="updateSelectedTextProp('color', this.value)" class="w-full h-6 rounded border border-[var(--cad-border)] cursor-pointer bg-transparent">
+                  </div>
+                  <div class="flex flex-col space-y-0.5">
+                    <span class="text-[var(--text-muted)] text-[9px]">Color Contorno:</span>
+                    <input type="color" id="prop-text-strokecolor" onchange="updateSelectedTextProp('strokeColor', this.value)" class="w-full h-6 rounded border border-[var(--cad-border)] cursor-pointer bg-transparent">
+                  </div>
+                </div>
+                <div class="flex flex-col space-y-0.5">
+                  <div class="flex justify-between text-[10px]">
+                    <span class="text-[var(--text-muted)]">Grosor de Contorno:</span>
+                    <span id="strokewidth-val-disp" class="text-cadAccent font-bold">0px</span>
+                  </div>
+                  <input type="range" id="prop-text-strokewidth" min="0" max="6" step="0.5" value="0" oninput="updateSelectedTextProp('strokeWidth', parseFloat(this.value))" class="w-full accent-cadAccent cursor-pointer h-1 bg-gray-700 rounded-lg">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MÓDULO: GESTOR DE CAPAS -->
+        <div class="space-y-1.5 border-t border-[var(--cad-border)] pt-2">
+          <button onclick="toggleSection('sec-layers-content', 'sec-layers-icon')" class="w-full flex justify-between items-center text-[10px] font-extrabold text-[var(--text-color)] uppercase tracking-wider hover:text-cadAccent transition">
+            <span class="flex items-center space-x-1.5"><i class="fa-solid fa-layer-group text-blue-400 text-xs"></i><span>Gestor de Capas</span></span>
+            <i id="sec-layers-icon" class="fa-solid fa-chevron-right text-xs text-[var(--text-muted)]"></i>
+          </button>
+          <div id="sec-layers-content" class="bg-[var(--cad-bg)] p-2 rounded-lg border border-[var(--cad-border)] space-y-2 shadow-md hidden">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold text-[var(--text-muted)]">Capa Activa:</span>
+              <button onclick="addNewLayer()" class="px-2 py-0.5 bg-blue-700 hover:bg-blue-600 text-white rounded text-[10px] font-semibold transition flex items-center space-x-1">
+                <i class="fa-solid fa-plus text-[9px]"></i><span>Nueva Capa</span>
+              </button>
+            </div>
+            <div id="layers-list-container" class="space-y-1 max-h-36 overflow-y-auto pr-1">
+              <!-- Renderizado dinámico de capas -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Visibility Control Toggles -->
+        <div class="space-y-1.5 pt-1.5 border-t border-[var(--cad-border)]">
+          <span class="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Visibilidad de Elementos</span>
+          <div class="grid grid-cols-2 gap-1.5 text-[10px]">
+            <button id="tog-showLengths" onclick="toggleOption('showLengths')" class="toggle-chip on p-1.5 bg-[var(--cad-bg)] border border-[var(--cad-border)] rounded text-center font-semibold transition">VER TAM LADOS</button>
+            <button id="tog-showAreas" onclick="toggleOption('showAreas')" class="toggle-chip on p-1.5 bg-[var(--cad-bg)] border border-[var(--cad-border)] rounded text-center font-semibold transition">VER ÁREAS (m²)</button>
+          </div>
+        </div>
+
+        <!-- CAD Assistant Toggles -->
+        <div class="space-y-1.5 pt-1.5 border-t border-[var(--cad-border)]">
+          <span class="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Asistencia CAD</span>
+          <div class="grid grid-cols-2 gap-1.5 text-[10px]">
+            <button id="tog-osnap" onclick="toggleOption('osnap')" class="toggle-chip on p-1.5 bg-[var(--cad-bg)] border border-[var(--cad-border)] rounded text-center font-semibold transition">O-SNAP (F3)</button>
+            <button id="tog-polar" onclick="toggleOption('polar')" class="toggle-chip on p-1.5 bg-[var(--cad-bg)] border border-[var(--cad-border)] rounded text-center font-semibold transition">POLAR (F10)</button>
+            <button id="tog-ortho" onclick="toggleOption('ortho')" class="toggle-chip p-1.5 bg-[var(--cad-bg)] border border-[var(--cad-border)] rounded text-center font-semibold transition">ORTHO (F8)</button>
+            <button id="tog-grid" onclick="toggleOption('grid')" class="toggle-chip on p-1.5 bg-[var(--cad-bg)] border border-[var(--cad-border)] rounded text-center font-semibold transition">REJILLA</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- CLI & Status Bar -->
+  <footer class="bg-[var(--cad-header)] border-t border-[var(--cad-border)] flex flex-col z-20 shadow-inner shrink-0">
+    <div id="cli-log" class="h-10 bg-[var(--cli-bg)] border-b border-[var(--cad-border)] px-3 py-1 font-mono text-[10px] text-[var(--text-muted)] overflow-y-auto space-y-0.5">
+      <div>CadTec 2D Engine Pro Listo. Inicie trazados digitando medidas o con el mouse.</div>
+    </div>
+    <div class="flex items-center px-3 py-1 bg-[var(--cad-panel)]">
+      <span id="command-prompt-label" class="text-cadAccent font-bold text-xs mr-2 tracking-wider flex items-center space-x-1 shrink-0">
+        <i class="fa-solid fa-terminal text-[10px]"></i><span>COMANDO &gt;</span>
+      </span>
+      <input type="text" id="command-input" class="flex-1 bg-[var(--cad-bg)] border border-[var(--cad-border)] rounded px-2.5 py-0.5 text-xs text-[var(--text-color)] focus:outline-none focus:border-cadAccent font-mono tracking-wide" placeholder="Escribe comando (L, C, REC, TEXT, TR, UNDO)..." autocomplete="off">
+      <button onclick="executeCliCommand()" class="ml-2 px-2.5 py-0.5 bg-cadAccent hover:bg-cadAccentHover text-white rounded text-xs font-semibold transition">Ejecutar</button>
+    </div>
+    <div class="bg-[var(--cli-bg)] px-3 py-0.5 flex items-center justify-between text-[10px] text-[var(--text-muted)] border-t border-[var(--cad-border)]">
+      <div class="flex items-center space-x-3 font-mono">
+        <div class="flex items-center space-x-1"><span class="text-red-500 font-bold">X:</span><span id="stat-coord-x" class="text-[var(--text-color)] font-bold">0.00</span></div>
+        <div class="flex items-center space-x-1"><span class="text-emerald-500 font-bold">Y:</span><span id="stat-coord-y" class="text-[var(--text-color)] font-bold">0.00</span></div>
+        <div class="flex items-center space-x-1 text-[var(--text-muted)]"><span>Paso Rejilla:</span><span id="stat-grid-step" class="text-amber-500 font-bold">1.00m</span></div>
+        <div class="flex items-center space-x-1 text-[var(--text-muted)]"><span>Zoom:</span><span id="stat-zoom" class="text-[var(--text-color)]">100%</span></div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button id="toggle-osnap-btn" onclick="toggleOption('osnap')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-900/60 text-emerald-400 border border-emerald-600/50 flex items-center space-x-1"><i class="fa-solid fa-magnet"></i><span id="osnap-label">OSNAP ON</span></button>
+        <button id="toggle-ortho-btn" onclick="toggleOption('ortho')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-gray-800 text-gray-400 border border-[var(--cad-border)] flex items-center space-x-1"><i class="fa-solid fa-arrows-up-down-left-right"></i><span id="ortho-label">ORTOGONAL</span></button>
+        <span id="fps-counter" class="text-[var(--text-muted)] text-[9px]">60 FPS</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    window.areaTotalDescontada = 0;
+
+    let isDarkMode = true;
+    let needsRender = true;
+
+    // Sistema de Capas: Capa 1 visible y desbloqueada; Capas secundarias no visibles y bloqueadas por defecto
+    let layers = [
+      { id: 0, name: 'Capa 1', color: '#00e5ff', visible: true, locked: false },
+      { id: 1, name: 'Capa 2', color: '#ffe600', visible: false, locked: true },
+      { id: 2, name: 'Capa 3', color: '#ff2a6d', visible: false, locked: true }
+    ];
+    let activeLayerId = 0;
+
+    let sidebarContainer = null;
+    let textDetailsEl = null;
+    let textDetailsNextSibling = null;
+    let isTextSectionMoved = false;
+
+    function renderLayersUI() {
+      const container = document.getElementById('layers-list-container');
+      if (!container) return;
+      container.innerHTML = '';
+      layers.forEach(layer => {
+        let isActive = layer.id === activeLayerId;
+        let div = document.createElement('div');
+        div.className = `flex items-center justify-between p-1.5 rounded border text-[10px] transition ${isActive ? 'bg-[var(--cad-panel)] border-blue-500/80 shadow-sm' : 'bg-[var(--cad-panel)]/50 border-[var(--cad-border)]'}`;
+        div.innerHTML = `
+          <div class="flex items-center space-x-1.5 cursor-pointer flex-1 min-w-0" onclick="setActiveLayer(${layer.id})">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${layer.color}"></span>
+            <span class="font-bold truncate ${isActive ? 'text-blue-400' : 'text-[var(--text-color)]'}">${layer.name}</span>
+          </div>
+          <div class="flex items-center space-x-1 shrink-0">
+            <button onclick="toggleLayerVisibility(${layer.id}, event)" class="w-5 h-5 rounded flex items-center justify-center hover:bg-[var(--cad-border)] text-[var(--text-muted)] ${layer.visible ? 'text-emerald-400' : 'opacity-40'}" title="Visibilidad"><i class="fa-solid ${layer.visible ? 'fa-eye' : 'fa-eye-slash'} text-[9px]"></i></button>
+            <button onclick="toggleLayerLock(${layer.id}, event)" class="w-5 h-5 rounded flex items-center justify-center hover:bg-[var(--cad-border)] text-[var(--text-muted)] ${layer.locked ? 'text-amber-400' : 'opacity-40'}" title="Bloqueo"><i class="fa-solid ${layer.locked ? 'fa-lock' : 'fa-lock-open'} text-[9px]"></i></button>
+            <button onclick="renameLayer(${layer.id}, event)" class="w-5 h-5 rounded flex items-center justify-center hover:bg-[var(--cad-border)] text-[var(--text-muted)]" title="Renombrar"><i class="fa-solid fa-pen text-[9px]"></i></button>
+            <button onclick="deleteLayer(${layer.id}, event)" class="w-5 h-5 rounded flex items-center justify-center hover:bg-[var(--cad-border)] text-red-400" title="Eliminar"><i class="fa-solid fa-trash text-[9px]"></i></button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function setActiveLayer(id) {
+      activeLayerId = id;
+      renderLayersUI();
+      showToast(`Capa activa seleccionada`);
+    }
+
+    function toggleLayerVisibility(id, e) {
+      e.stopPropagation();
+      let l = layers.find(x => x.id === id);
+      if (l) {
+        l.visible = !l.visible;
+        renderLayersUI();
+        unifyTopologyAndBuildFaces();
+        needsRender = true;
+      }
+    }
+
+    function toggleLayerLock(id, e) {
+      e.stopPropagation();
+      let l = layers.find(x => x.id === id);
+      if (l) {
+        l.locked = !l.locked;
+        renderLayersUI();
+      }
+    }
+
+    function renameLayer(id, e) {
+      e.stopPropagation();
+      let l = layers.find(x => x.id === id);
+      if (!l) return;
+      let newName = prompt("Ingrese el nuevo nombre para la capa:", l.name);
+      if (newName && newName.trim()) {
+        l.name = newName.trim();
+        renderLayersUI();
+        showToast('Capa renombrada');
+      }
+    }
+
+    function deleteLayer(id, e) {
+      e.stopPropagation();
+      if (layers.length <= 1) {
+        showToast('Debe existir al menos una capa activa');
+        return;
+      }
+      if (confirm("¿Está seguro de eliminar esta capa? Las figuras asociadas serán eliminadas.")) {
+        layers = layers.filter(l => l.id !== id);
+        entities = entities.filter(ent => ent.layerId !== id);
+        if (activeLayerId === id) {
+          activeLayerId = layers[0].id;
+        }
+        renderLayersUI();
+        unifyTopologyAndBuildFaces();
+        updateInspectorUI();
+        needsRender = true;
+        showToast('Capa eliminada');
+      }
+    }
+
+    function addNewLayer() {
+      let newId = layers.length > 0 ? Math.max(...layers.map(l => l.id)) + 1 : 0;
+      let defaultName = `Capa ${layers.length + 1}`;
+      let name = prompt("Nombre de la nueva capa:", defaultName);
+      if (name && name.trim()) {
+        let colors = ['#00ff66', '#00e5ff', '#ffe600', '#ff2a6d', '#a855f7', '#38bdf8'];
+        let color = colors[newId % colors.length];
+        layers.push({ id: newId, name: name.trim(), color: color, visible: true, locked: false });
+        activeLayerId = newId;
+        renderLayersUI();
+        showToast('Capa creada correctamente');
+      }
+    }
+
+    const themeColors = {
+      dark: {
+        bg: '#1e1e1e',
+        entityDefault: '#ffffff',
+        entitySelected: '#00e5ff',
+        gridMinor: 'rgba(255, 255, 255, 0.05)',
+        gridMajor: 'rgba(255, 255, 255, 0.12)',
+        axisX: 'rgba(231, 76, 60, 0.8)',
+        axisY: 'rgba(46, 204, 113, 0.8)'
+      },
+      light: {
+        bg: '#f8fafc',
+        entityDefault: '#0f172a',
+        entitySelected: '#d97706',
+        gridMinor: 'rgba(0, 0, 0, 0.06)',
+        gridMajor: 'rgba(0, 0, 0, 0.15)',
+        axisX: 'rgba(220, 38, 38, 0.85)',
+        axisY: 'rgba(22, 163, 74, 0.85)'
+      }
+    };
+
+    function getDefaultEntityColor() { return isDarkMode ? '#ffffff' : '#0f172a'; }
+
+    function isWhiteColor(hex) {
+      if (!hex) return true;
+      let h = hex.toLowerCase().trim();
+      return h === '#ffffff' || h === '#fff' || h === 'rgb(255,255,255)' || h === 'white';
+    }
+
+    function isDarkColor(hex) {
+      if (!hex) return false;
+      let h = hex.toLowerCase().trim();
+      return h === '#0f172a' || h === '#000000' || h === '#000' || h === 'black';
+    }
+
+    function toggleTheme() {
+      isDarkMode = !isDarkMode;
+      const root = document.getElementById('html-root');
+      const themeIcon = document.getElementById('theme-icon');
+      const themeText = document.getElementById('theme-text');
+      const styleStrokeColor = document.getElementById('style-stroke-color');
+      const appTitleText = document.getElementById('app-title-text');
+
+      if (isDarkMode) {
+        root.classList.remove('light-theme');
+        themeIcon.className = 'fa-solid fa-sun text-[10px]';
+        themeText.innerText = 'Claro';
+        if (styleStrokeColor) styleStrokeColor.value = '#ffffff';
+        if (appTitleText) {
+          appTitleText.style.color = '#ffffff';
+          appTitleText.style.textShadow = '0 0 8px rgba(255, 255, 255, 0.6)';
+        }
+      } else {
+        root.classList.add('light-theme');
+        themeIcon.className = 'fa-solid fa-moon text-[10px]';
+        themeText.innerText = 'Oscuro';
+        if (styleStrokeColor) styleStrokeColor.value = '#0f172a';
+        if (appTitleText) {
+          appTitleText.style.color = '#0f172a';
+          appTitleText.style.textShadow = '0 0 8px rgba(15, 23, 42, 0.4)';
+        }
+      }
+
+      entities.forEach(ent => {
+        if (ent.type === 'Text') {
+          if (isDarkMode && isDarkColor(ent.color)) ent.color = '#ffffff';
+          else if (!isDarkMode && isWhiteColor(ent.color)) ent.color = '#0f172a';
+        } else {
+          if (isDarkMode && isDarkColor(ent.customColor)) ent.customColor = '#ffffff';
+          else if (!isDarkMode && isWhiteColor(ent.customColor)) ent.customColor = '#0f172a';
+        }
+      });
+
+      unifyTopologyAndBuildFaces();
+      syncCustomizationControls();
+      updateInspectorUI();
+      needsRender = true;
+    }
+
+    function toggleSection(contentId, iconId) {
+      const content = document.getElementById(contentId);
+      const icon = document.getElementById(iconId);
+      if (content && icon) {
+        let isHidden = content.classList.contains('hidden');
+        if (isHidden) {
+          content.classList.remove('hidden');
+          icon.className = 'fa-solid fa-chevron-down text-xs';
+        } else {
+          content.classList.add('hidden');
+          icon.className = 'fa-solid fa-chevron-right text-xs';
+        }
+      }
+    }
+
+    function calcularDescuentoVereda() {
+      let totalDescuento = 0;
+      const inputs = document.querySelectorAll('.vereda-input');
+      inputs.forEach(input => {
+        let cantidad = parseFloat(input.value) || 0;
+        if (cantidad < 0) { cantidad = 0; input.value = 0; }
+        let areaUnitaria = parseFloat(input.getAttribute('data-area')) || 0;
+        let subtotal = cantidad * areaUnitaria;
+        let row = input.closest('tr');
+        if (row) {
+          let subtotalElem = row.querySelector('.subtotal-val');
+          if (subtotalElem) subtotalElem.textContent = subtotal.toFixed(2);
+        }
+        totalDescuento += subtotal;
+      });
+      window.areaTotalDescontada = totalDescuento;
+      document.getElementById('lbl-total-descuento').textContent = totalDescuento.toFixed(2);
+      updateInspectorUI();
+    }
+
+    class Vec2 {
+      constructor(x, y) { this.x = x; this.y = y; }
+      add(v) { return new Vec2(this.x + v.x, this.y + v.y); }
+      sub(v) { return new Vec2(this.x - v.x, this.y - v.y); }
+      mult(n) { return new Vec2(this.x * n, this.y * n); }
+      mag() { return Math.hypot(this.x, this.y); }
+      normalize() { let m = this.mag(); return m === 0 ? new Vec2(0,0) : new Vec2(this.x/m, this.y/m); }
+      dist(v) { return this.sub(v).mag(); }
+      dot(v) { return this.x * v.x + this.y * v.y; }
+      clone() { return new Vec2(this.x, this.y); }
+      equals(v, tol = 0.05) { return this.dist(v) < tol; }
+      static angleBetween(v1, v2) { return Math.atan2(v2.y - v1.y, v2.x - v1.x); }
+    }
+
+    const MathUtils = {
+      formatNum: (n) => (Math.round(n * 100) / 100).toFixed(2),
+      normalizeAngle: (angle) => {
+        let a = angle % (Math.PI * 2);
+        return a < 0 ? a + Math.PI * 2 : a;
+      },
+      isAngleBetween: (target, start, end) => {
+        let t = MathUtils.normalizeAngle(target);
+        let s = MathUtils.normalizeAngle(start);
+        let e = MathUtils.normalizeAngle(end);
+        if (s < e) return t >= s && t <= e;
+        return t >= s || t <= e;
+      },
+      intersectLineLine: (p1, p2, p3, p4) => {
+        const den = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
+        if (Math.abs(den) < 0.000001) return null;
+        const t = ((p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)) / den;
+        const u = -((p1.x - p2.x) * (p1.y - p3.y) - (p1.y - p2.y) * (p1.x - p3.x)) / den;
+        if (t >= -0.0001 && t <= 1.0001 && u >= -0.0001 && u <= 1.0001) {
+          return new Vec2(p1.x + t * (p2.x - p1.x), p1.y + t * (p2.y - p1.y));
+        }
+        return null;
+      },
+      distToSegment: (p, v, w) => {
+        let l2 = v.dist(w); l2 = l2 * l2;
+        if (l2 === 0) return p.dist(v);
+        let t = Math.max(0, Math.min(1, ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2));
+        return p.dist(new Vec2(v.x + t * (w.x - v.x), v.y + t * (w.y - v.y)));
+      },
+      closestPointOnSegment: (p, v, w) => {
+        let l2 = v.dist(w); l2 = l2 * l2;
+        if (l2 === 0) return v.clone();
+        let t = Math.max(0, Math.min(1, ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2));
+        return new Vec2(v.x + t * (w.x - v.x), v.y + t * (w.y - v.y));
+      },
+      intersectLineCircle: (p1, p2, c, r) => {
+        let d = p2.sub(p1), f = p1.sub(c);
+        let a = d.x*d.x + d.y*d.y;
+        let b = 2 * (f.x*d.x + f.y*d.y);
+        let c_ = (f.x*f.x + f.y*f.y) - r*r;
+        let discriminant = b*b - 4*a*c_;
+        if (discriminant < 0) return [];
+        discriminant = Math.sqrt(discriminant);
+        let t1 = (-b - discriminant) / (2*a), t2 = (-b + discriminant) / (2*a);
+        let pts = [];
+        if (t1 >= -0.0001 && t1 <= 1.0001) pts.push(p1.add(d.mult(t1)));
+        if (t2 >= -0.0001 && t2 <= 1.0001) pts.push(p1.add(d.mult(t2)));
+        return pts;
+      },
+      intersectCircleCircle: (c1, r1, c2, r2) => {
+        let d = c1.dist(c2);
+        if (d > r1 + r2 || d < Math.abs(r1 - r2) || (d === 0 && r1 === r2)) return [];
+        let a = (r1*r1 - r2*r2 + d*d) / (2*d);
+        let h = Math.sqrt(Math.max(0, r1*r1 - a*a));
+        let p2 = c1.add(c2.sub(c1).mult(a/d));
+        let rx = -(c2.y - c1.y) * (h/d), ry = (c2.x - c1.x) * (h/d);
+        return [ new Vec2(p2.x + rx, p2.y + ry), new Vec2(p2.x - rx, p2.y - ry) ];
+      }
+    };
+
+    function hexToRgba(hex, alpha = 0.05) {
+      if (!hex || hex[0] !== '#') return `rgba(255, 255, 255, ${alpha})`;
+      let c = hex.substring(1);
+      if (c.length === 3) c = c.split('').map(x => x + x).join('');
+      let num = parseInt(c, 16);
+      return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
+    }
+
+    function isPointInsidePoly(pt, polyPts) {
+      let inside = false;
+      for (let i = 0, j = polyPts.length - 1; i < polyPts.length; j = i++) {
+        let xi = polyPts[i].x, yi = polyPts[i].y;
+        let xj = polyPts[j].x, yj = polyPts[j].y;
+        let intersect = ((yi > pt.y) !== (yj > pt.y)) &&
+            (pt.x < (xj - xi) * (pt.y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+
+    function drawRoundedRectPolyfill(ctx, x, y, width, height, radius) {
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(x, y, width, height, radius);
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+      }
+    }
+
+    class SpatialHash {
+      constructor(cellSize = 2.5) {
+        this.cellSize = cellSize;
+        this.grid = new Map();
+      }
+      clear() { this.grid.clear(); }
+      _key(cx, cy) { return `${cx},${cy}`; }
+      _getCellsForBounds(minX, minY, maxX, maxY) {
+        let minCx = Math.floor(minX / this.cellSize);
+        let maxCx = Math.floor(maxX / this.cellSize);
+        let minCy = Math.floor(minY / this.cellSize);
+        let maxCy = Math.floor(maxY / this.cellSize);
+        let keys = [];
+        for (let x = minCx; x <= maxCx; x++) {
+          for (let y = minCy; y <= maxCy; y++) {
+            keys.push(this._key(x, y));
+          }
+        }
+        return keys;
+      }
+      insert(entity) {
+        let b = entity.getBounds();
+        let keys = this._getCellsForBounds(b.minX, b.minY, b.maxX, b.maxY);
+        keys.forEach(k => {
+          if (!this.grid.has(k)) this.grid.set(k, []);
+          this.grid.get(k).push(entity);
+        });
+      }
+      queryPoint(pt, radius) {
+        let keys = this._getCellsForBounds(pt.x - radius, pt.y - radius, pt.x + radius, pt.y + radius);
+        let set = new Set();
+        keys.forEach(k => {
+          if (this.grid.has(k)) {
+            this.grid.get(k).forEach(e => set.add(e));
+          }
+        });
+        return Array.from(set);
+      }
+    }
+
+    let entityIdCounter = 0;
+    class Entity {
+      constructor() { 
+        this.id = entityIdCounter++; 
+        this.selected = false; 
+        this.type = 'Base'; 
+        this.blockId = null;
+        this.customColor = null;
+        this.fillOpacity = 0.05;
+        this.layerId = activeLayerId;
+      }
+      draw(ctx) {}
+      drawFill(ctx) {}
+      getGrips() { return []; }
+      updateGrip(index, newPos) {}
+      getIntersections(other) { return []; }
+      clone() {}
+      move(delta) {}
+      getArea() { return 0; }
+      getLength() { return 0; }
+      getCentroid() { return null; }
+      getSnapPoints() { return this.getGrips(); }
+      getBounds() { return { minX: 0, minY: 0, maxX: 0, maxY: 0 }; }
+    }
+
+    class TextEntity extends Entity {
+      constructor(pos, text, color = null, fontSize = 16, fontFamily = 'Segoe UI', tracking = 1.0, strokeColor = '#000000', strokeWidth = 0) {
+        super();
+        this.pos = pos;
+        this.text = text;
+        this.color = color;
+        this.fontSize = fontSize;
+        this.fontFamily = fontFamily;
+        this.tracking = tracking;
+        this.strokeColor = strokeColor;
+        this.strokeWidth = strokeWidth;
+        this.type = 'Text';
+        this.blockId = this.id;
+      }
+      draw(ctx) {
+        let s = worldToScreen(this.pos);
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        ctx.font = `600 ${this.fontSize}px "${this.fontFamily}", sans-serif`;
+        ctx.fillStyle = this.color || getDefaultEntityColor();
+        ctx.lineWidth = this.strokeWidth;
+        ctx.strokeStyle = this.strokeColor;
+        if (this.selected) { ctx.shadowColor = this.color || '#00e5ff'; ctx.shadowBlur = 14; }
+        if (this.tracking !== 1.0) {
+          let currentX = 0;
+          for (let i = 0; i < this.text.length; i++) {
+            let char = this.text[i];
+            if (this.strokeWidth > 0) ctx.strokeText(char, currentX, 0);
+            ctx.fillText(char, currentX, 0);
+            currentX += ctx.measureText(char).width * this.tracking;
+          }
+        } else {
+          if (this.strokeWidth > 0) ctx.strokeText(this.text, 0, 0);
+          ctx.fillText(this.text, 0, 0);
+        }
+        ctx.restore();
+      }
+      getGrips() { return [this.pos]; }
+      updateGrip(index, pos) { this.pos = pos; }
+      move(delta) { this.pos = this.pos.add(delta); }
+      clone() { 
+        let t = new TextEntity(this.pos.clone(), this.text, this.color, this.fontSize, this.fontFamily, this.tracking, this.strokeColor, this.strokeWidth); 
+        t.blockId = this.blockId; t.layerId = this.layerId;
+        return t; 
+      }
+      getCentroid() { return this.pos.clone(); }
+      getBounds() {
+        let approxW = (this.text.length * (this.fontSize * 0.55) * this.tracking) / view.scale;
+        let approxH = this.fontSize / view.scale;
+        return { minX: this.pos.x, minY: this.pos.y - approxH, maxX: this.pos.x + approxW, maxY: this.pos.y + (approxH * 0.3) };
+      }
+    }
+
+    class Line extends Entity {
+      constructor(p1, p2) { super(); this.p1 = p1; this.p2 = p2; this.type = 'Line'; }
+      draw(ctx) { 
+        ctx.beginPath(); ctx.moveTo(this.p1.x, this.p1.y); ctx.lineTo(this.p2.x, this.p2.y); ctx.stroke(); 
+      }
+      getGrips() { return [this.p1, this.p2, new Vec2((this.p1.x+this.p2.x)/2, (this.p1.y+this.p2.y)/2)]; }
+      updateGrip(index, pos) {
+        if (index === 0) this.p1 = pos;
+        else if (index === 1) this.p2 = pos;
+        else this.move(pos.sub(this.getGrips()[2]));
+      }
+      move(delta) { this.p1 = this.p1.add(delta); this.p2 = this.p2.add(delta); }
+      clone() { 
+        let l = new Line(this.p1.clone(), this.p2.clone()); 
+        l.blockId = this.blockId; l.customColor = this.customColor; l.fillOpacity = this.fillOpacity; l.layerId = this.layerId;
+        return l; 
+      }
+      getLength() { return this.p1.dist(this.p2); }
+      getCentroid() { return new Vec2((this.p1.x + this.p2.x)/2, (this.p1.y + this.p2.y)/2); }
+      getBounds() { return { minX: Math.min(this.p1.x, this.p2.x), minY: Math.min(this.p1.y, this.p2.y), maxX: Math.max(this.p1.x, this.p2.x), maxY: Math.max(this.p1.y, this.p2.y) }; }
+      getIntersections(other) {
+        if (other.type === 'Line') {
+          let res = MathUtils.intersectLineLine(this.p1, this.p2, other.p1, other.p2);
+          return res ? [res] : [];
+        }
+        if (other.type === 'Circle') return MathUtils.intersectLineCircle(this.p1, this.p2, other.center, other.r);
+        if (other.type === 'Arc') return MathUtils.intersectLineCircle(this.p1, this.p2, other.center, other.r).filter(p => MathUtils.isAngleBetween(Vec2.angleBetween(other.center, p), other.startAng, other.endAng));
+        if (other.type === 'Polyline') return other.getIntersections(this);
+        return [];
+      }
+    }
+
+    class Circle extends Entity {
+      constructor(center, r) { super(); this.center = center; this.r = r; this.type = 'Circle'; this.blockId = this.id; }
+      draw(ctx) { ctx.beginPath(); ctx.arc(this.center.x, this.center.y, this.r, 0, Math.PI*2); ctx.stroke(); }
+      drawFill(ctx) {
+        ctx.beginPath(); ctx.arc(this.center.x, this.center.y, this.r, 0, Math.PI*2);
+        ctx.fillStyle = hexToRgba(this.customColor || getDefaultEntityColor(), this.fillOpacity);
+        ctx.fill();
+      }
+      getGrips() {
+        return [this.center, 
+          new Vec2(this.center.x + this.r, this.center.y), new Vec2(this.center.x - this.r, this.center.y),
+          new Vec2(this.center.x, this.center.y + this.r), new Vec2(this.center.x, this.center.y - this.r)
+        ];
+      }
+      updateGrip(index, pos) {
+        if (index === 0) this.center = pos;
+        else this.r = Math.max(0.01, this.center.dist(pos));
+      }
+      move(delta) { this.center = this.center.add(delta); }
+      clone() { 
+        let c = new Circle(this.center.clone(), this.r); 
+        c.blockId = this.blockId; c.customColor = this.customColor; c.fillOpacity = this.fillOpacity; c.layerId = this.layerId;
+        return c; 
+      }
+      getArea() { return Math.PI * this.r * this.r; }
+      getLength() { return 2 * Math.PI * this.r; }
+      getCentroid() { return this.center.clone(); }
+      getBounds() { return { minX: this.center.x - this.r, minY: this.center.y - this.r, maxX: this.center.x + this.r, maxY: this.center.y + this.r }; }
+      getIntersections(other) {
+        if (other.type === 'Line') return MathUtils.intersectLineCircle(other.p1, other.p2, this.center, this.r);
+        if (other.type === 'Circle') return MathUtils.intersectCircleCircle(this.center, this.r, other.center, other.r);
+        if (other.type === 'Arc') return MathUtils.intersectCircleCircle(this.center, this.r, other.center, other.r).filter(p => MathUtils.isAngleBetween(Vec2.angleBetween(other.center, p), other.startAng, other.endAng));
+        if (other.type === 'Polyline') return other.getIntersections(this);
+        return [];
+      }
+    }
+
+    class Arc extends Entity {
+      constructor(center, r, startAng, endAng) { super(); this.center = center; this.r = r; this.startAng = startAng; this.endAng = endAng; this.type = 'Arc'; this.blockId = this.id; }
+      draw(ctx) { ctx.beginPath(); ctx.arc(this.center.x, this.center.y, this.r, this.startAng, this.endAng); ctx.stroke(); }
+      getP1() { return new Vec2(this.center.x + Math.cos(this.startAng)*this.r, this.center.y + Math.sin(this.startAng)*this.r); }
+      getP2() { return new Vec2(this.center.x + Math.cos(this.endAng)*this.r, this.center.y + Math.sin(this.endAng)*this.r); }
+      getGrips() { 
+        let midAng = (this.startAng + this.endAng)/2;
+        let pMid = new Vec2(this.center.x + Math.cos(midAng)*this.r, this.center.y + Math.sin(midAng)*this.r);
+        return [this.center, this.getP1(), this.getP2(), pMid]; 
+      }
+      updateGrip(index, pos) {
+        if (index === 0) this.center = pos;
+        else if (index === 1) { this.startAng = Vec2.angleBetween(this.center, pos); this.r = this.center.dist(pos); }
+        else if (index === 2) { this.endAng = Vec2.angleBetween(this.center, pos); this.r = this.center.dist(pos); }
+        else if (index === 3) { this.r = this.center.dist(pos); }
+      }
+      move(delta) { this.center = this.center.add(delta); }
+      clone() { 
+        let a = new Arc(this.center.clone(), this.r, this.startAng, this.endAng); 
+        a.blockId = this.blockId; a.customColor = this.customColor; a.fillOpacity = this.fillOpacity; a.layerId = this.layerId;
+        return a; 
+      }
+      getLength() { let d = this.endAng - this.startAng; if (d < 0) d += Math.PI*2; return this.r * d; }
+      getArea() { let d = this.endAng - this.startAng; if (d < 0) d += Math.PI*2; return 0.5 * this.r * this.r * (d - Math.sin(d)); }
+      getCentroid() { let midAng = (this.startAng + this.endAng)/2; return new Vec2(this.center.x + Math.cos(midAng)*(this.r*0.6), this.center.y + Math.sin(midAng)*(this.r*0.6)); }
+      getBounds() { return { minX: this.center.x - this.r, minY: this.center.y - this.r, maxX: this.center.x + this.r, maxY: this.center.y + this.r }; }
+      getIntersections(other) {
+        let ints = [];
+        if (other.type === 'Line') ints = MathUtils.intersectLineCircle(other.p1, other.p2, this.center, this.r);
+        if (other.type === 'Circle' || other.type === 'Arc') ints = MathUtils.intersectCircleCircle(this.center, this.r, other.center, other.r);
+        if (other.type === 'Polyline') return other.getIntersections(this);
+        return ints.filter(p => {
+          let a1 = Vec2.angleBetween(this.center, p);
+          let inThis = MathUtils.isAngleBetween(a1, this.startAng, this.endAng);
+          if(other.type === 'Arc') {
+            let a2 = Vec2.angleBetween(other.center, p);
+            return inThis && MathUtils.isAngleBetween(a2, other.startAng, other.endAng);
+          }
+          return inThis;
+        });
+      }
+    }
+
+    class Polyline extends Entity {
+      constructor(points = [], isClosed = false) { super(); this.points = points; this.isClosed = isClosed; this.type = 'Polyline'; this.blockId = this.id; }
+      getLines() {
+        let lines = [];
+        for (let i = 0; i < this.points.length - 1; i++) lines.push(new Line(this.points[i], this.points[i+1]));
+        if (this.isClosed && this.points.length > 2) lines.push(new Line(this.points[this.points.length-1], this.points[0]));
+        return lines;
+      }
+      draw(ctx) {
+        if (this.points.length < 2) return;
+        ctx.beginPath(); ctx.moveTo(this.points[0].x, this.points[0].y);
+        for (let i = 1; i < this.points.length; i++) ctx.lineTo(this.points[i].x, this.points[i].y);
+        if (this.isClosed) ctx.closePath();
+        ctx.stroke();
+      }
+      drawFill(ctx) {
+        if (!this.isClosed || this.points.length < 3) return;
+        ctx.beginPath(); ctx.moveTo(this.points[0].x, this.points[0].y);
+        for (let i = 1; i < this.points.length; i++) ctx.lineTo(this.points[i].x, this.points[i].y);
+        ctx.closePath();
+        ctx.fillStyle = hexToRgba(this.customColor || getDefaultEntityColor(), this.fillOpacity);
+        ctx.fill();
+      }
+      getGrips() { return this.points; }
+      updateGrip(index, pos) { this.points[index] = pos; }
+      move(delta) { this.points = this.points.map(p => p.add(delta)); }
+      clone() { 
+        let p = new Polyline(this.points.map(pt => pt.clone()), this.isClosed); 
+        p.blockId = this.blockId; p.customColor = this.customColor; p.fillOpacity = this.fillOpacity; p.layerId = this.layerId;
+        return p; 
+      }
+      getLength() { let l = 0; this.getLines().forEach(line => l += line.getLength()); return l; }
+      getArea() {
+        if (!this.isClosed || this.points.length < 3) return 0;
+        let area = 0;
+        for (let i = 0; i < this.points.length; i++) {
+          let j = (i + 1) % this.points.length;
+          area += this.points[i].x * this.points[j].y;
+          area -= this.points[j].x * this.points[i].y;
+        }
+        return Math.abs(area) / 2;
+      }
+      getCentroid() {
+        if (this.points.length < 3) return null;
+        let cx = 0, cy = 0, signedArea = 0;
+        for (let i = 0; i < this.points.length; i++) {
+          let j = (i + 1) % this.points.length;
+          let factor = (this.points[i].x * this.points[j].y - this.points[j].x * this.points[i].y);
+          signedArea += factor;
+          cx += (this.points[i].x + this.points[j].x) * factor;
+          cy += (this.points[i].y + this.points[j].y) * factor;
+        }
+        signedArea /= 2;
+        if (Math.abs(signedArea) < 0.00001) return null;
+        return new Vec2(cx / (6 * signedArea), cy / (6 * signedArea));
+      }
+      getBounds() {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        this.points.forEach(p => {
+          if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+        });
+        return { minX, minY, maxX, maxY };
+      }
+      getIntersections(other) {
+        let ints = [];
+        this.getLines().forEach(l => ints.push(...l.getIntersections(other)));
+        return ints;
+      }
+    }
+
+    class PlanarFace {
+      constructor(points = [], blockId = null, customColor = null, fillOpacity = 0.05, layerId = 0) {
+        this.points = points;
+        this.blockId = blockId;
+        this.customColor = customColor;
+        this.fillOpacity = fillOpacity;
+        this.layerId = layerId;
+      }
+      getArea() {
+        if (this.points.length < 3) return 0;
+        let area = 0;
+        for (let i = 0; i < this.points.length; i++) {
+          let j = (i + 1) % this.points.length;
+          area += this.points[i].x * this.points[j].y;
+          area -= this.points[j].x * this.points[i].y;
+        }
+        return Math.abs(area) / 2;
+      }
+      getCentroid() {
+        if (this.points.length < 3) return null;
+        let cx = 0, cy = 0, signedArea = 0;
+        for (let i = 0; i < this.points.length; i++) {
+          let j = (i + 1) % this.points.length;
+          let factor = (this.points[i].x * this.points[j].y - this.points[j].x * this.points[i].y);
+          signedArea += factor;
+          cx += (this.points[i].x + this.points[j].x) * factor;
+          cy += (this.points[i].y + this.points[j].y) * factor;
+        }
+        signedArea /= 2;
+        if (Math.abs(signedArea) < 0.00001) return null;
+        return new Vec2(cx / (6 * signedArea), cy / (6 * signedArea));
+      }
+      drawFill(ctx) {
+        if (this.points.length < 3) return;
+        ctx.beginPath(); ctx.moveTo(this.points[0].x, this.points[0].y);
+        for (let i = 1; i < this.points.length; i++) ctx.lineTo(this.points[i].x, this.points[i].y);
+        ctx.closePath();
+        ctx.fillStyle = hexToRgba(this.customColor || getDefaultEntityColor(), this.fillOpacity);
+        ctx.fill();
+      }
+    }
+
+    const canvas = document.getElementById('cadCanvas');
+    const ctx = canvas.getContext('2d');
+    const spatialGrid = new SpatialHash(2.5);
+
+    const ui = {
+      quickMeasure: document.getElementById('quick-measure'),
+      dynInput: document.getElementById('dynamic-input'),
+      dynVal: document.getElementById('dyn-val'),
+      cmdInput: document.getElementById('command-input'),
+      cmdPromptLabel: document.getElementById('command-prompt-label'),
+      propTotalFigures: document.getElementById('prop-total-figures'),
+      propTotalTexts: document.getElementById('prop-total-texts'),
+      propSelectedCount: document.getElementById('prop-selected-count'),
+      propSelectedSides: document.getElementById('prop-selected-sides'),
+      propLen: document.getElementById('prop-length'),
+      propArea: document.getElementById('prop-area'),
+      statCoordX: document.getElementById('stat-coord-x'),
+      statCoordY: document.getElementById('stat-coord-y'),
+      statGridStep: document.getElementById('stat-grid-step')
+    };
+
+    let width, height;
+    let entities = [];
+    let detectedFaces = [];
+    let selection = new Set();
+    let clipboard = [];
+    let undoStack = [];
+
+    let state = {
+      tool: 'SELECT',
+      step: 0,
+      pts: [],
+      activeBlockId: null,
+      moveBasePoint: null,
+      copyBasePoint: null,
+      stretchedGrips: [],
+      activeHotGripPos: null,
+      draggingView: false,
+      panningStart: null,
+      isShift: false,
+      isDraggingElements: false,
+      dragLastMouse: new Vec2(0,0),
+      dragCachedArea: null
+    };
+
+    let view = { tx: 0, ty: 0, scale: 40 };
+    let options = { osnap: true, polar: true, ortho: false, grid: true, showLengths: true, showAreas: true };
+    let mouseScreen = new Vec2(0,0), mouseWorld = new Vec2(0,0), snappedPos = new Vec2(0,0);
+    let activeSnap = null;
+    let typedDistance = "";
+    let frameCount = 0;
+    let lastFpsTime = performance.now();
+
+    function initCanvasSize() {
+      let rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width; canvas.height = rect.height;
+      width = rect.width; height = rect.height;
+      if (view.tx === 0 && view.ty === 0) { view.tx = width / 2; view.ty = height / 2; }
+      needsRender = true;
+    }
+    window.addEventListener('resize', initCanvasSize);
+
+    function rebuildSpatialIndex() {
+      spatialGrid.clear();
+      entities.forEach(e => {
+        let l = layers.find(ly => ly.id === e.layerId);
+        if (!l || l.visible) spatialGrid.insert(e);
+      });
+    }
+
+    function parseEntityFromData(item) {
+      if (!item) return null;
+      let type = item.type;
+      let d = item.data || item;
+      let blockId = item.blockId !== undefined ? item.blockId : (d.blockId !== undefined ? d.blockId : null);
+      let ent = null;
+      if (type === 'Line' && d.p1 && d.p2) {
+        ent = new Line(new Vec2(d.p1.x, d.p1.y), new Vec2(d.p2.x, d.p2.y));
+      } else if (type === 'Circle' && d.center) {
+        ent = new Circle(new Vec2(d.center.x, d.center.y), d.r);
+      } else if (type === 'Arc' && d.center) {
+        ent = new Arc(new Vec2(d.center.x, d.center.y), d.r, d.startAng, d.endAng);
+      } else if (type === 'Polyline' && d.points) {
+        let pts = d.points.map(p => new Vec2(p.x, p.y));
+        ent = new Polyline(pts, d.isClosed);
+      } else if (type === 'Text' && d.pos) {
+        ent = new TextEntity(new Vec2(d.pos.x, d.pos.y), d.text, d.color, d.fontSize || 16, d.fontFamily || 'Segoe UI', d.tracking || 1.0, d.strokeColor || '#000000', d.strokeWidth || 0);
+      }
+      if (ent) {
+        ent.blockId = blockId;
+        ent.customColor = item.customColor || d.customColor || null;
+        ent.fillOpacity = item.fillOpacity !== undefined ? item.fillOpacity : (d.fillOpacity !== undefined ? d.fillOpacity : 0.05);
+        ent.layerId = item.layerId !== undefined ? item.layerId : (d.layerId !== undefined ? d.layerId : 0);
+      }
+      return ent;
+    }
+
+    function saveState() {
+      if (undoStack.length > 50) undoStack.shift();
+      undoStack.push(JSON.stringify({
+        layers: layers,
+        activeLayerId: activeLayerId,
+        entities: entities.map(e => ({ type: e.type, blockId: e.blockId, customColor: e.customColor, fillOpacity: e.fillOpacity, layerId: e.layerId, data: e })),
+        pts: state.pts.map(p => ({ x: p.x, y: p.y })),
+        activeBlockId: state.activeBlockId
+      }));
+    }
+
+    function undo() {
+      if (undoStack.length === 0) { showToast('Nada que deshacer'); return; }
+      let raw = undoStack.pop();
+      let parsed = JSON.parse(raw);
+      if (parsed.layers) {
+        layers = parsed.layers;
+        activeLayerId = parsed.activeLayerId !== undefined ? parsed.activeLayerId : 0;
+        renderLayersUI();
+      }
+      if (parsed.entities) {
+        entities = parsed.entities.map(item => parseEntityFromData(item)).filter(e => e !== null);
+        state.pts = (parsed.pts || []).map(p => new Vec2(p.x, p.y));
+        state.activeBlockId = parsed.activeBlockId || null;
+      }
+      selection.clear();
+      rebuildSpatialIndex();
+      unifyTopologyAndBuildFaces();
+      updateInspectorUI(); 
+      needsRender = true;
+      showToast('Último tramo / acción deshecha');
+      logCli('UNDO: Tramo o cambio eliminado.');
+    }
+
+    function screenToWorld(pt) { return new Vec2((pt.x - view.tx) / view.scale, -(pt.y - view.ty) / view.scale); }
+    function worldToScreen(pt) { return new Vec2(pt.x * view.scale + view.tx, -pt.y * view.scale + view.ty); }
+
+    function updateCommandPrompt(msg) {
+      ui.cmdPromptLabel.textContent = '';
+      const icon = document.createElement('i'); icon.className = "fa-solid fa-terminal text-[10px]";
+      const span = document.createElement('span'); span.textContent = msg;
+      ui.cmdPromptLabel.appendChild(icon);
+      ui.cmdPromptLabel.appendChild(document.createTextNode(' '));
+      ui.cmdPromptLabel.appendChild(span);
+    }
+
+    function setTool(t) {
+      state.tool = t; state.step = 0; state.pts = []; typedDistance = "";
+      state.activeBlockId = null; state.moveBasePoint = null; state.copyBasePoint = null;
+      state.stretchedGrips = []; state.activeHotGripPos = null;
+      document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+      const btnMap = {
+        'SELECT': 'tool-select', 'LINE': 'tool-line', 'RECT': 'tool-rect',
+        'CIRCLE': 'tool-circle', 'ARC': 'tool-arc', 'TEXT': 'tool-text',
+        'TRIM': 'tool-trim', 'MOVE': 'tool-move', 'COPY': 'tool-copy', 'PAN': 'tool-pan'
+      };
+      if (btnMap[t]) document.getElementById(btnMap[t])?.classList.add('active');
+      hideDynamicInput();
+      ui.quickMeasure.style.display = 'none';
+      const toolTexts = {
+        'SELECT': 'Seleccionar / Grips', 'LINE': 'Línea', 'RECT': 'Rectángulo',
+        'CIRCLE': 'Círculo', 'ARC': 'Arco', 'TEXT': 'Texto', 'TRIM': 'Recortar',
+        'MOVE': 'Mover', 'COPY': 'Copiar', 'PAN': 'Pan'
+      };
+      document.getElementById('active-tool-text').innerText = `HERRAMIENTA: ${toolTexts[t] || t}`;
+      logCli(`Herramienta activada: ${t}`);
+      needsRender = true;
+    }
+
+    function toggleOption(opt) {
+      options[opt] = !options[opt];
+      let chip = document.getElementById('tog-' + opt);
+      if (chip) chip.classList.toggle('on', options[opt]);
+      if (opt === 'osnap') {
+        const osnapLabel = document.getElementById('osnap-label');
+        if (osnapLabel) osnapLabel.innerText = options.osnap ? 'OSNAP ON' : 'OSNAP OFF';
+      } else if (opt === 'ortho') {
+        const orthoBtn = document.getElementById('toggle-ortho-btn');
+        if (orthoBtn) {
+          orthoBtn.className = options.ortho 
+            ? "px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-900/60 text-cyan-400 border border-cyan-600/50 flex items-center space-x-1"
+            : "px-1.5 py-0.5 rounded text-[9px] font-bold bg-gray-800 text-gray-400 border border-[var(--cad-border)] flex items-center space-x-1";
+        }
+      }
+      showToast(`Opción ${opt.toUpperCase()}: ${options[opt] ? 'Activada' : 'Desactivada'}`);
+      needsRender = true;
+    }
+
+    function startNewFigure() { state.pts = []; state.activeBlockId = null; setTool('LINE'); }
+    function closeCurrentFigure() {
+      if (state.pts.length >= 2) {
+        addPointToLineSequence(state.pts[0].clone(), true);
+        setTool('SELECT');
+      }
+    }
+
+    function applyCustomColorToSelection(hexColor) {
+      if (selection.size === 0) { showToast('Seleccione primero una o más figuras'); return; }
+      saveState();
+      selection.forEach(ent => {
+        if (ent.type === 'Text') ent.color = hexColor;
+        else ent.customColor = hexColor;
+      });
+      unifyTopologyAndBuildFaces();
+      needsRender = true;
+      showToast('Color aplicado a la selección');
+    }
+
+    function applyCustomOpacityToSelection(opacityVal) {
+      if (selection.size === 0) { showToast('Seleccione primero una o más figuras'); return; }
+      document.getElementById('fill-opacity-disp').textContent = `${Math.round(opacityVal * 100)}%`;
+      saveState();
+      selection.forEach(ent => { ent.fillOpacity = opacityVal; });
+      unifyTopologyAndBuildFaces();
+      needsRender = true;
+    }
+
+    function purgeDuplicateEntities() {
+      let clean = [];
+      entities.forEach(ent => {
+        if (ent.type === 'Line') {
+          let exists = clean.some(e => e.type === 'Line' && 
+            ((e.p1.equals(ent.p1) && e.p2.equals(ent.p2)) || (e.p1.equals(ent.p2) && e.p2.equals(ent.p1))));
+          if (!exists) clean.push(ent);
+        } else {
+          let exists = clean.some(e => e.type === ent.type && e.id === ent.id);
+          if (!exists) clean.push(ent);
+        }
+      });
+      entities = clean;
+    }
+
+    function unifyTopologyAndBuildFaces() {
+      purgeDuplicateEntities();
+      detectedFaces = [];
+      let allSegments = [];
+      entities.forEach(e => {
+        let l = layers.find(ly => ly.id === e.layerId);
+        if (!l || !l.visible) return;
+        let segBlockId = e.blockId !== undefined ? e.blockId : null;
+        if (e.type === 'Line') {
+          allSegments.push({ p1: e.p1.clone(), p2: e.p2.clone(), blockId: segBlockId, customColor: e.customColor, fillOpacity: e.fillOpacity, layerId: e.layerId });
+        } else if (e.type === 'Polyline') {
+          let lines = e.getLines();
+          lines.forEach(line => allSegments.push({ p1: line.p1.clone(), p2: line.p2.clone(), blockId: segBlockId, customColor: e.customColor, fillOpacity: e.fillOpacity, layerId: e.layerId }));
+        }
+      });
+
+      if (allSegments.length >= 3) {
+        let adj = new Map();
+        const addEdge = (a, b, seg) => {
+          let ka = `${a.x.toFixed(3)},${a.y.toFixed(3)}`;
+          let kb = `${b.x.toFixed(3)},${b.y.toFixed(3)}`;
+          if (!adj.has(ka)) adj.set(ka, []);
+          if (!adj.has(kb)) adj.set(kb, []);
+          if (!adj.get(ka).some(p => p.pt.equals(b))) adj.get(ka).push({ pt: b.clone(), seg });
+          if (!adj.get(kb).some(p => p.pt.equals(a))) adj.get(kb).push({ pt: a.clone(), seg });
+        };
+
+        allSegments.forEach(s => addEdge(s.p1, s.p2, s));
+
+        let facesMap = new Map();
+        adj.forEach((neighbors, kStr) => {
+          let [x, y] = kStr.split(',').map(Number);
+          let u = new Vec2(x, y);
+          neighbors.forEach(vObj => {
+            let v = vObj.pt;
+            let facePts = [u.clone(), v.clone()];
+            let faceColors = [vObj.seg.customColor];
+            let faceOpacities = [vObj.seg.fillOpacity];
+            let faceBlockIds = [vObj.seg.blockId];
+            let faceLayers = [vObj.seg.layerId];
+            let curr = v;
+            let prev = u;
+            let valid = true;
+
+            for (let step = 0; step < 50; step++) {
+              let nextList = adj.get(`${curr.x.toFixed(3)},${curr.y.toFixed(3)}`);
+              if (!nextList) { valid = false; break; }
+              let bestNextObj = null;
+              let minAngle = Infinity;
+              let incomingAng = Math.atan2(prev.y - curr.y, prev.x - curr.x);
+
+              nextList.forEach(nObj => {
+                let n = nObj.pt;
+                if (n.equals(prev)) return;
+                let outAng = Math.atan2(n.y - curr.y, n.x - curr.x);
+                let diff = outAng - incomingAng;
+                while (diff <= 0) diff += Math.PI * 2;
+                if (diff < minAngle) { minAngle = diff; bestNextObj = nObj; }
+              });
+
+              if (!bestNextObj) { valid = false; break; }
+              if (bestNextObj.pt.equals(u)) { break; }
+              
+              facePts.push(bestNextObj.pt.clone());
+              if (bestNextObj.seg.customColor) faceColors.push(bestNextObj.seg.customColor);
+              if (bestNextObj.seg.fillOpacity !== undefined) faceOpacities.push(bestNextObj.seg.fillOpacity);
+              if (bestNextObj.seg.blockId !== undefined) faceBlockIds.push(bestNextObj.seg.blockId);
+              if (bestNextObj.seg.layerId !== undefined) faceLayers.push(bestNextObj.seg.layerId);
+
+              prev = curr;
+              curr = bestNextObj.pt;
+            }
+
+            if (valid && facePts.length >= 3) {
+              let customCol = faceColors.find(c => c !== null) || null;
+              let avgOpacity = faceOpacities.reduce((a, b) => a + b, 0) / faceOpacities.length;
+              let commonBlockId = faceBlockIds.find(id => id !== null && id !== undefined) || null;
+              let commonLayerId = faceLayers.find(id => id !== null && id !== undefined) || 0;
+              let f = new PlanarFace(facePts, commonBlockId, customCol, avgOpacity, commonLayerId);
+              let area = f.getArea();
+              if (area > 0.01) {
+                let key = `${Math.round(area * 1000)}`;
+                if (!facesMap.has(key)) facesMap.set(key, f);
+              }
+            }
+          });
+        });
+
+        let candidateFaces = Array.from(facesMap.values());
+        candidateFaces.sort((a, b) => a.getArea() - b.getArea());
+        let atomicFaces = [];
+        candidateFaces.forEach(faceA => {
+          let centerA = faceA.getCentroid();
+          if (!centerA || faceA.getArea() < 0.02) return;
+          let isComposite = false;
+          for (let b = 0; b < atomicFaces.length; b++) {
+            let centerB = atomicFaces[b].getCentroid();
+            if (centerB && isPointInsidePoly(centerB, faceA.points)) { isComposite = true; break; }
+          }
+          if (!isComposite) atomicFaces.push(faceA);
+        });
+        detectedFaces = atomicFaces;
+      }
+      rebuildSpatialIndex();
+    }
+
+    function addPointToLineSequence(nextPt, isClosingClick = false) {
+      let activeLayer = layers.find(l => l.id === activeLayerId);
+      if (activeLayer && (activeLayer.locked || !activeLayer.visible)) {
+        showToast('La capa activa está bloqueada u oculta');
+        return;
+      }
+      if (state.pts.length === 0) { state.pts.push(nextPt.clone()); return; }
+      saveState();
+      let prevPt = state.pts[state.pts.length - 1];
+      if (state.activeBlockId === null) state.activeBlockId = entityIdCounter++;
+      let newLineSeg = new Line(prevPt.clone(), nextPt.clone());
+      newLineSeg.blockId = state.activeBlockId;
+      newLineSeg.layerId = activeLayerId;
+      entities.push(newLineSeg);
+
+      if (isClosingClick) {
+        state.pts = []; state.activeBlockId = null;
+        showToast('Figura cerrada exitosamente');
+      } else {
+        state.pts.push(nextPt.clone());
+        showToast(`Tramo de ${MathUtils.formatNum(prevPt.dist(nextPt))}m añadido`);
+      }
+      unifyTopologyAndBuildFaces();
+      updateInspectorUI();
+      needsRender = true;
+    }
+
+    function createTextEntityAt(pos) {
+      let activeLayer = layers.find(l => l.id === activeLayerId);
+      if (activeLayer && (activeLayer.locked || !activeLayer.visible)) {
+        showToast('La capa activa está bloqueada u oculta');
+        return;
+      }
+      let defaultColor = getDefaultEntityColor();
+      let userText = prompt("Ingrese el texto a colocar en el plano:", "Nota CAD");
+      if (userText !== null && userText.trim() !== "") {
+        saveState();
+        let txtEntity = new TextEntity(pos, userText.trim(), defaultColor, 16, 'Segoe UI', 1.0, '#000000', 0);
+        txtEntity.layerId = activeLayerId;
+        entities.push(txtEntity);
+        selection.clear(); selection.add(txtEntity);
+        unifyTopologyAndBuildFaces();
+        updateInspectorUI(); 
+        needsRender = true;
+        showToast('Texto añadido correctamente');
+      }
+      setTool('SELECT');
+    }
+
+    function updateSelectedTextProp(prop, val) {
+      if (selection.size === 1) {
+        let ent = Array.from(selection)[0];
+        let layer = layers.find(l => l.id === ent.layerId);
+        if (layer && layer.locked) { showToast('La capa está bloqueada'); return; }
+        if (ent.type === 'Text') {
+          saveState();
+          if (prop === 'text') ent.text = val;
+          if (prop === 'fontFamily') ent.fontFamily = val;
+          if (prop === 'fontSize') { ent.fontSize = val; document.getElementById('fontsize-val-disp').innerText = `${val}px`; }
+          if (prop === 'tracking') { ent.tracking = val; document.getElementById('tracking-val-disp').innerText = `${val.toFixed(1)}x`; }
+          if (prop === 'color') ent.color = val;
+          if (prop === 'strokeColor') ent.strokeColor = val;
+          if (prop === 'strokeWidth') { ent.strokeWidth = val; document.getElementById('strokewidth-val-disp').innerText = `${val}px`; }
+          needsRender = true;
+        }
+      }
+    }
+
+    function calculateSnap(mWorld) {
+      let bestDist = 15 / view.scale;
+      let bestPt = mWorld.clone();
+      activeSnap = null;
+
+      if (state.tool === 'LINE' && state.pts.length >= 2) {
+        let startPt = state.pts[0];
+        if (startPt.dist(mWorld) < 25 / view.scale) {
+          bestPt = startPt.clone();
+          activeSnap = 'close_guide';
+          return bestPt;
+        }
+      }
+
+      if (state.pts.length > 0 && state.tool !== 'SELECT' && state.tool !== 'TRIM') {
+        let lastPt = state.pts[state.pts.length - 1];
+        let ang = Vec2.angleBetween(lastPt, mWorld);
+        let dist = lastPt.dist(mWorld);
+        if (state.isShift || options.ortho) {
+          let snapAng = Math.round(ang / (Math.PI/2)) * (Math.PI/2);
+          bestPt = new Vec2(lastPt.x + Math.cos(snapAng)*dist, lastPt.y + Math.sin(snapAng)*dist);
+          activeSnap = 'ortho';
+          return bestPt;
+        }
+        if (options.polar) {
+          let deg = ang * 180 / Math.PI;
+          let snapDeg = Math.round(deg / 45) * 45;
+          if (Math.abs(deg - snapDeg) < 6) {
+            let snapAng = snapDeg * Math.PI / 180;
+            bestPt = new Vec2(lastPt.x + Math.cos(snapAng)*dist, lastPt.y + Math.sin(snapAng)*dist);
+            activeSnap = 'polar';
+          }
+        }
+      }
+
+      if (options.osnap) {
+        let candidates = spatialGrid.queryPoint(mWorld, bestDist);
+        candidates.forEach(ent => {
+          let layer = layers.find(l => l.id === ent.layerId);
+          if (layer && (!layer.visible || layer.locked)) return;
+          let grips = ent.getSnapPoints();
+          grips.forEach(g => {
+            let d = g.dist(mWorld);
+            if (d < bestDist) { bestDist = d; bestPt = g.clone(); activeSnap = 'point'; }
+          });
+          if (ent.type === 'Line') {
+            let pProj = MathUtils.closestPointOnSegment(mWorld, ent.p1, ent.p2);
+            let d = pProj.dist(mWorld);
+            if (d < bestDist && d < 12 / view.scale) { bestDist = d; bestPt = pProj.clone(); activeSnap = 'nearest'; }
+          }
+          candidates.forEach(other => {
+            if (ent !== other) {
+              let ints = ent.getIntersections(other);
+              ints.forEach(i => {
+                let d = i.dist(mWorld);
+                if (d < bestDist) { bestDist = d; bestPt = i.clone(); activeSnap = 'intersect'; }
+              });
+            }
+          });
+        });
+      }
+      return bestPt;
+    }
+
+    function showDynamicInput(valStr) {
+      ui.dynInput.style.display = 'block';
+      ui.dynVal.textContent = valStr;
+      ui.dynInput.style.left = mouseScreen.x + 'px';
+      ui.dynInput.style.top = mouseScreen.y + 'px';
+    }
+    function hideDynamicInput() { ui.dynInput.style.display = 'none'; }
+
+    canvas.addEventListener('mousemove', (e) => {
+      let rect = canvas.getBoundingClientRect();
+      mouseScreen = new Vec2(e.clientX - rect.left, e.clientY - rect.top);
+      if (state.draggingView) {
+        view.tx = mouseScreen.x - state.panningStart.x;
+        view.ty = mouseScreen.y - state.panningStart.y;
+        needsRender = true; return;
+      }
+      mouseWorld = screenToWorld(mouseScreen);
+      snappedPos = calculateSnap(mouseWorld);
+      ui.statCoordX.textContent = MathUtils.formatNum(snappedPos.x);
+      ui.statCoordY.textContent = MathUtils.formatNum(snappedPos.y);
+
+      if (state.stretchedGrips.length > 0) {
+        state.stretchedGrips.forEach(item => {
+          let layer = layers.find(l => l.id === item.entity.layerId);
+          if (layer && layer.locked) return;
+          item.entity.updateGrip(item.gripIndex, snappedPos);
+        });
+        state.activeHotGripPos = snappedPos.clone();
+        unifyTopologyAndBuildFaces();
+        updateInspectorUI(); needsRender = true; return;
+      }
+
+      if (state.isDraggingElements && selection.size > 0) {
+        let delta = snappedPos.sub(state.dragLastMouse);
+        if (delta.mag() > 0.0001) {
+          selection.forEach(ent => {
+            let layer = layers.find(l => l.id === ent.layerId);
+            if (!layer || !layer.locked) ent.move(delta);
+          });
+          state.dragLastMouse = snappedPos.clone();
+          unifyTopologyAndBuildFaces();
+          updateInspectorUI();
+        }
+        needsRender = true; return;
+      }
+
+      if (state.pts.length > 0 && ['LINE', 'CIRCLE', 'ARC', 'RECT'].includes(state.tool)) {
+        ui.quickMeasure.style.display = 'block';
+        ui.quickMeasure.style.left = mouseScreen.x + 'px';
+        ui.quickMeasure.style.top = mouseScreen.y + 'px';
+        let p1 = state.pts[state.pts.length - 1];
+        let d = p1.dist(snappedPos);
+        let ang = Vec2.angleBetween(p1, snappedPos) * 180 / Math.PI;
+        let txt = `L: ${MathUtils.formatNum(d)} m`;
+        if (state.tool !== 'CIRCLE') txt += ` | A: ${MathUtils.formatNum(ang < 0 ? ang + 360 : ang)}°`;
+        ui.quickMeasure.textContent = txt;
+      } else {
+        ui.quickMeasure.style.display = 'none';
+      }
+      needsRender = true;
+    });
+
+    function processPointClick(posWorld) {
+      if (state.tool === 'SELECT') return;
+      if (state.tool === 'TEXT') { createTextEntityAt(posWorld); return; }
+      if (state.tool === 'MOVE') {
+        if (selection.size === 0) { showToast('Selecciona primero un objeto'); setTool('SELECT'); return; }
+        if (state.step === 0) {
+          state.moveBasePoint = posWorld.clone(); state.step = 1;
+          updateCommandPrompt('COMANDO');
+        } else if (state.step === 1) {
+          saveState();
+          let delta = posWorld.sub(state.moveBasePoint);
+          selection.forEach(ent => {
+            let layer = layers.find(l => l.id === ent.layerId);
+            if (!layer || !layer.locked) ent.move(delta);
+          });
+          unifyTopologyAndBuildFaces(); setTool('SELECT'); updateInspectorUI(); needsRender = true;
+          showToast('Objeto movido exitosamente');
+        }
+        return;
+      }
+      if (state.tool === 'COPY') {
+        if (selection.size === 0) { showToast('Selecciona primero un objeto'); setTool('SELECT'); return; }
+        if (state.step === 0) {
+          state.copyBasePoint = posWorld.clone(); state.step = 1;
+          updateCommandPrompt('COMANDO');
+        } else if (state.step === 1) {
+          saveState();
+          let delta = posWorld.sub(state.copyBasePoint);
+          let newBlockId = entityIdCounter++;
+          let newCopies = [];
+          selection.forEach(ent => {
+            let layer = layers.find(l => l.id === ent.layerId);
+            if (!layer || !layer.locked) {
+              let copied = ent.clone(); copied.blockId = newBlockId; copied.move(delta);
+              entities.push(copied); newCopies.push(copied);
+            }
+          });
+          selection.clear(); newCopies.forEach(nc => selection.add(nc));
+          unifyTopologyAndBuildFaces(); setTool('SELECT'); updateInspectorUI(); needsRender = true;
+          showToast('Copia creada');
+        }
+        return;
+      }
+      if (state.tool === 'TRIM') { executeTrim(posWorld); return; }
+      if (state.tool === 'LINE') {
+        if (state.pts.length === 0) {
+          addPointToLineSequence(posWorld.clone());
+          updateCommandPrompt('COMANDO');
+        } else {
+          let isClosing = state.pts.length >= 2 && (posWorld.equals(state.pts[0], 0.3) || activeSnap === 'close_guide');
+          if (isClosing) { addPointToLineSequence(state.pts[0].clone(), true); setTool('SELECT'); }
+          else { addPointToLineSequence(posWorld.clone()); }
+        }
+      }
+      else if (state.tool === 'CIRCLE') {
+        let activeLayer = layers.find(l => l.id === activeLayerId);
+        if (activeLayer && (activeLayer.locked || !activeLayer.visible)) { showToast('Capa bloqueada u oculta'); return; }
+        state.pts.push(posWorld.clone()); state.step++;
+        if (state.step === 1) updateCommandPrompt('COMANDO');
+        if (state.step === 2) {
+          saveState();
+          let r = state.pts[0].dist(state.pts[1]);
+          let cEnt = new Circle(state.pts[0], r); cEnt.layerId = activeLayerId;
+          entities.push(cEnt);
+          unifyTopologyAndBuildFaces(); setTool('SELECT');
+          showToast(`Círculo creado (r: ${MathUtils.formatNum(r)}m)`);
+        }
+      }
+      else if (state.tool === 'RECT') {
+        let activeLayer = layers.find(l => l.id === activeLayerId);
+        if (activeLayer && (activeLayer.locked || !activeLayer.visible)) { showToast('Capa bloqueada u oculta'); return; }
+        state.pts.push(posWorld.clone()); state.step++;
+        if (state.step === 1) updateCommandPrompt('COMANDO');
+        if (state.step === 2) {
+          saveState();
+          let p1 = state.pts[0], p2 = state.pts[1];
+          let pts = [p1, new Vec2(p2.x, p1.y), p2, new Vec2(p1.x, p2.y)];
+          let rectEnt = new Polyline(pts, true); rectEnt.layerId = activeLayerId;
+          entities.push(rectEnt);
+          unifyTopologyAndBuildFaces(); setTool('SELECT');
+          showToast('Rectángulo creado');
+        }
+      }
+      else if (state.tool === 'ARC') {
+        let activeLayer = layers.find(l => l.id === activeLayerId);
+        if (activeLayer && (activeLayer.locked || !activeLayer.visible)) { showToast('Capa bloqueada u oculta'); return; }
+        state.pts.push(posWorld.clone()); state.step++;
+        if (state.step === 1) updateCommandPrompt('COMANDO');
+        if (state.step === 2) updateCommandPrompt('COMANDO');
+        if (state.step === 3) {
+          saveState();
+          let c = state.pts[0], r = c.dist(state.pts[1]);
+          let start = Vec2.angleBetween(c, state.pts[1]);
+          let end = Vec2.angleBetween(c, state.pts[2]);
+          let arcEnt = new Arc(c, r, start, end); arcEnt.layerId = activeLayerId;
+          entities.push(arcEnt);
+          unifyTopologyAndBuildFaces(); setTool('SELECT');
+          showToast('Arco creado');
+        }
+      }
+      updateInspectorUI(); needsRender = true;
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 1 || (e.button === 0 && e.altKey) || state.tool === 'PAN') {
+        state.draggingView = true;
+        state.panningStart = new Vec2(mouseScreen.x - view.tx, mouseScreen.y - view.ty);
+        return;
+      }
+      if (e.button !== 0) return;
+      if (state.tool === 'TRIM') { executeTrim(mouseWorld); return; }
+
+      if (state.tool === 'MOVE' && state.step === 0 && selection.size > 0) {
+        state.moveBasePoint = mouseWorld.clone();
+        state.step = 1;
+        updateCommandPrompt('COMANDO');
+        return;
+      }
+      if (state.tool === 'MOVE' && state.step === 1) {
+        saveState();
+        let delta = mouseWorld.sub(state.moveBasePoint);
+        selection.forEach(ent => {
+          let layer = layers.find(l => l.id === ent.layerId);
+          if (!layer || !layer.locked) ent.move(delta);
+        });
+        state.step = 0; state.moveBasePoint = null;
+        unifyTopologyAndBuildFaces(); setTool('SELECT'); updateInspectorUI(); needsRender = true;
+        showToast('Objeto movido exitosamente');
+        return;
+      }
+
+      if (state.tool === 'SELECT') {
+        for (let sel of selection) {
+          let layer = layers.find(l => l.id === sel.layerId);
+          if (layer && layer.locked) continue;
+          let grips = sel.getGrips();
+          for (let i = 0; i < grips.length; i++) {
+            if (worldToScreen(grips[i]).dist(mouseScreen) < 12) {
+              saveState();
+              let targetPt = grips[i].clone();
+              state.stretchedGrips = [];
+              entities.forEach(ent => {
+                let entLayer = layers.find(l => l.id === ent.layerId);
+                if (entLayer && (entLayer.locked || !entLayer.visible)) return;
+                let eGrips = ent.getGrips();
+                eGrips.forEach((eg, gIdx) => {
+                  let isMidpoint = (ent.type === 'Line' && gIdx === 2);
+                  let targetIsMidpoint = (sel.type === 'Line' && i === 2);
+                  if (isMidpoint === targetIsMidpoint && eg.dist(targetPt) < 0.08) {
+                    state.stretchedGrips.push({ entity: ent, gripIndex: gIdx });
+                  }
+                });
+              });
+              state.activeHotGripPos = targetPt.clone();
+              needsRender = true; return;
+            }
+          }
+        }
+
+        let candidates = spatialGrid.queryPoint(mouseWorld, 12 / view.scale);
+        let clicked = null, minDist = 12 / view.scale;
+        candidates.forEach(ent => {
+          let layer = layers.find(l => l.id === ent.layerId);
+          if (layer && (!layer.visible || layer.locked)) return;
+          if (ent.type === 'Line' && MathUtils.distToSegment(mouseWorld, ent.p1, ent.p2) < minDist) clicked = ent;
+          else if ((ent.type === 'Circle' || ent.type === 'Arc') && Math.abs(ent.center.dist(mouseWorld) - ent.r) < minDist) clicked = ent;
+          else if (ent.type === 'Polyline') {
+            ent.getLines().forEach(l => { if (MathUtils.distToSegment(mouseWorld, l.p1, l.p2) < minDist) clicked = ent; });
+          } else if (ent.type === 'Text') {
+            let b = ent.getBounds();
+            if (mouseWorld.x >= b.minX && mouseWorld.x <= b.maxX && mouseWorld.y >= b.minY && mouseWorld.y <= b.maxY) clicked = ent;
+          }
+        });
+
+        if (clicked) {
+          if (!e.ctrlKey) selection.clear();
+          let targetBlockId = clicked.blockId;
+          entities.forEach(ent => {
+            let layer = layers.find(l => l.id === ent.layerId);
+            if (layer && (layer.locked || !layer.visible)) return;
+            if (ent === clicked || (targetBlockId !== null && targetBlockId !== undefined && ent.blockId === targetBlockId)) {
+              selection.add(ent);
+            }
+          });
+          state.isDraggingElements = true;
+          state.dragLastMouse = snappedPos.clone();
+          state.dragCachedArea = calculateRealSelectionArea();
+          saveState();
+        } else {
+          if (!e.ctrlKey) selection.clear();
+        }
+        syncCustomizationControls();
+        updateInspectorUI(); needsRender = true; return;
+      }
+      processPointClick(snappedPos);
+    });
+
+    function syncCustomizationControls() {
+      if (selection.size > 0) {
+        let firstEnt = Array.from(selection)[0];
+        let colorInput = document.getElementById('style-stroke-color');
+        let opacityInput = document.getElementById('style-fill-opacity');
+        let opacityDisp = document.getElementById('fill-opacity-disp');
+
+        if (colorInput) {
+          let col = firstEnt.customColor || firstEnt.color || getDefaultEntityColor();
+          colorInput.value = col;
+        }
+
+        if (opacityInput && opacityDisp) {
+          let op = firstEnt.fillOpacity !== undefined ? firstEnt.fillOpacity : 0.05;
+          opacityInput.value = Math.round(op * 100);
+          opacityDisp.textContent = `${Math.round(op * 100)}%`;
+        }
+      }
+    }
+
+    canvas.addEventListener('mouseup', () => {
+      if (state.isDraggingElements) {
+        selection.forEach(ent => {
+          let layer = layers.find(l => l.id === ent.layerId);
+          if (layer && layer.locked) return;
+          if (ent.type === 'Line') {
+            ent.p1.x = Math.round(ent.p1.x * 1000) / 1000;
+            ent.p1.y = Math.round(ent.p1.y * 1000) / 1000;
+            ent.p2.x = Math.round(ent.p2.x * 1000) / 1000;
+            ent.p2.y = Math.round(ent.p2.y * 1000) / 1000;
+          } else if (ent.type === 'Polyline') {
+            ent.points.forEach(p => {
+              p.x = Math.round(p.x * 1000) / 1000;
+              p.y = Math.round(p.y * 1000) / 1000;
+            });
+          }
+        });
+      }
+
+      if (state.isDraggingElements || state.stretchedGrips.length > 0) {
+        unifyTopologyAndBuildFaces();
+        updateInspectorUI();
+      }
+      state.draggingView = false;
+      state.stretchedGrips = [];
+      state.activeHotGripPos = null;
+      state.isDraggingElements = false;
+      state.dragCachedArea = null;
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      let zoomFactor = Math.exp((e.deltaY < 0 ? 1 : -1) * 0.12);
+      view.tx = mouseScreen.x - (mouseScreen.x - view.tx) * zoomFactor;
+      view.ty = mouseScreen.y - (mouseScreen.y - view.ty) * zoomFactor;
+      view.scale *= zoomFactor;
+      document.getElementById('stat-zoom').innerText = `${Math.round(view.scale * 2.5)}%`;
+      needsRender = true;
+    }, { passive: false });
+
+    function executeTrim(clickWorld) {
+      let candidates = spatialGrid.queryPoint(clickWorld, 15 / view.scale);
+      let target = null, minDist = 15 / view.scale;
+      candidates.forEach(ent => {
+        let layer = layers.find(l => l.id === ent.layerId);
+        if (layer && (layer.locked || !layer.visible)) return;
+        if (ent.type === 'Text') {
+          let b = ent.getBounds();
+          if (clickWorld.x >= b.minX && clickWorld.x <= b.maxX && clickWorld.y >= b.minY && clickWorld.y <= b.maxY) target = ent;
+        } else if (ent.type === 'Line') {
+          let d = MathUtils.distToSegment(clickWorld, ent.p1, ent.p2);
+          if (d < minDist) { target = ent; minDist = d; }
+        } else if (ent.type === 'Arc') {
+          let d = Math.abs(ent.center.dist(clickWorld) - ent.r);
+          if (d < minDist) { target = ent; minDist = d; }
+        } else if (ent.type === 'Circle') {
+          let d = Math.abs(ent.center.dist(clickWorld) - ent.r);
+          if (d < minDist) { target = ent; minDist = d; }
+        } else if (ent.type === 'Polyline') {
+          ent.getLines().forEach(l => {
+            let d = MathUtils.distToSegment(clickWorld, l.p1, l.p2);
+            if (d < minDist) { target = ent; minDist = d; }
+          });
+        }
+      });
+
+      if (!target) {
+        showToast('Ningún elemento cercano para recortar');
+        return;
+      }
+      saveState();
+
+      if (target.type === 'Text') {
+        entities = entities.filter(e => e !== target);
+        selection.delete(target);
+        unifyTopologyAndBuildFaces(); updateInspectorUI(); needsRender = true;
+        showToast('Texto eliminado'); return;
+      }
+
+      if (target.type === 'Polyline') {
+        let lines = target.getLines();
+        let closestLineIdx = -1;
+        let minLineDist = Infinity;
+        lines.forEach((l, idx) => {
+          let d = MathUtils.distToSegment(clickWorld, l.p1, l.p2);
+          if (d < minLineDist) { minLineDist = d; closestLineIdx = idx; }
+        });
+
+        if (closestLineIdx !== -1 && minLineDist < 12 / view.scale) {
+          let segToTrim = lines[closestLineIdx];
+          let ints = [];
+          entities.forEach(other => { if (other !== target) ints.push(...segToTrim.getIntersections(other)); });
+          let breakPoints = [segToTrim.p1.clone(), segToTrim.p2.clone()];
+          ints.forEach(p => { if (!breakPoints.some(b => b.equals(p, 0.001))) breakPoints.push(p.clone()); });
+          let dir = segToTrim.p2.sub(segToTrim.p1), lenSq = dir.x * dir.x + dir.y * dir.y;
+          if (lenSq > 0.000001) {
+            breakPoints.sort((a, b) => {
+              let tA = ((a.x - segToTrim.p1.x) * dir.x + (a.y - segToTrim.p1.y) * dir.y) / lenSq;
+              let tB = ((b.x - segToTrim.p1.x) * dir.x + (b.y - segToTrim.p1.y) * dir.y) / lenSq;
+              return tA - tB;
+            });
+            let clickProj = MathUtils.closestPointOnSegment(clickWorld, segToTrim.p1, segToTrim.p2);
+            let tClick = ((clickProj.x - segToTrim.p1.x) * dir.x + (clickProj.y - segToTrim.p1.y) * dir.y) / lenSq;
+            
+            let newSegments = [];
+            for (let i = 0; i < breakPoints.length - 1; i++) {
+              let pA = breakPoints[i], pB = breakPoints[i+1];
+              let tA = ((pA.x - segToTrim.p1.x) * dir.x + (pA.y - segToTrim.p1.y) * dir.y) / lenSq;
+              let tB = ((pB.x - segToTrim.p1.x) * dir.x + (pB.y - segToTrim.p1.y) * dir.y) / lenSq;
+              if (!(tClick >= tA - 0.001 && tClick <= tB + 0.001)) {
+                if (pA.dist(pB) > 0.001) newSegments.push(new Line(pA, pB));
+              }
+            }
+            entities = entities.filter(e => e !== target);
+            newSegments.forEach(ns => { ns.blockId = target.blockId; ns.customColor = target.customColor; ns.fillOpacity = target.fillOpacity; ns.layerId = target.layerId; entities.push(ns); });
+            unifyTopologyAndBuildFaces(); updateInspectorUI(); needsRender = true;
+            showToast('Lado de la figura recortado correctamente');
+            return;
+          }
+        }
+      }
+
+      if (target.type === 'Line') {
+        let ints = [];
+        entities.forEach(other => { if (other !== target) ints.push(...target.getIntersections(other)); });
+        let breakPoints = [target.p1.clone(), target.p2.clone()];
+        ints.forEach(p => { if (!breakPoints.some(b => b.equals(p, 0.001))) breakPoints.push(p.clone()); });
+        let dir = target.p2.sub(target.p1), lenSq = dir.x * dir.x + dir.y * dir.y;
+        if (lenSq > 0.000001) {
+          breakPoints.sort((a, b) => {
+            let tA = ((a.x - target.p1.x) * dir.x + (a.y - target.p1.y) * dir.y) / lenSq;
+            let tB = ((b.x - target.p1.x) * dir.x + (b.y - target.p1.x) * dir.x) / lenSq;
+            return tA - tB;
+          });
+          let clickProj = MathUtils.closestPointOnSegment(clickWorld, target.p1, target.p2);
+          let tClick = ((clickProj.x - target.p1.x) * dir.x + (clickProj.y - target.p1.x) * dir.x) / lenSq;
+          let remainingSegments = [];
+          for (let i = 0; i < breakPoints.length - 1; i++) {
+            let pA = breakPoints[i], pB = breakPoints[i+1];
+            let tA = ((pA.x - target.p1.x) * dir.x + (pA.y - target.p1.x) * dir.x) / lenSq;
+            let tB = ((pB.x - target.p1.x) * dir.x + (pB.y - target.p1.x) * dir.x) / lenSq;
+            if (!(tClick >= tA - 0.001 && tClick <= tB + 0.001)) {
+              if (pA.dist(pB) > 0.001) {
+                let l = new Line(pA, pB); l.blockId = target.blockId; l.customColor = target.customColor; l.fillOpacity = target.fillOpacity; l.layerId = target.layerId;
+                remainingSegments.push(l);
+              }
+            }
+          }
+          entities = entities.filter(e => e !== target);
+          entities.push(...remainingSegments);
+        }
+      } else if (target.type === 'Arc') {
+        let clickAng = Vec2.angleBetween(target.center, clickWorld);
+        let dStart = Math.abs(clickAng - target.startAng);
+        if (dStart < Math.PI) {
+          target.startAng = clickAng;
+        } else {
+          target.endAng = clickAng;
+        }
+        if (Math.abs(target.endAng - target.startAng) < 0.05) {
+          entities = entities.filter(e => e !== target);
+        }
+      } else {
+        entities = entities.filter(e => e !== target);
+      }
+
+      unifyTopologyAndBuildFaces(); updateInspectorUI(); needsRender = true;
+      showToast('Tramo recortado correctamente');
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (document.activeElement === ui.cmdInput || document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT') return;
+      state.isShift = e.shiftKey;
+      if (e.key === 'Escape') { setTool('SELECT'); selection.clear(); hideDynamicInput(); updateInspectorUI(); needsRender = true; return; }
+      if (e.key === 'Enter') {
+        if (typedDistance.length > 0 && state.pts.length > 0) {
+          let dist = parseFloat(typedDistance);
+          if (!isNaN(dist) && dist > 0) {
+            let p1 = state.pts[state.pts.length - 1];
+            let dir = snappedPos.sub(p1).normalize();
+            if (dir.mag() === 0) dir = new Vec2(1, 0);
+            let targetPos = p1.add(dir.mult(dist));
+            addPointToLineSequence(targetPos);
+          }
+          typedDistance = ""; hideDynamicInput(); return;
+        }
+        if (state.tool === 'LINE' && state.pts.length >= 2) { closeCurrentFigure(); return; }
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (typedDistance.length > 0) {
+          typedDistance = typedDistance.slice(0, -1);
+          if (typedDistance.length === 0) hideDynamicInput(); else showDynamicInput(typedDistance);
+        } else { deleteSelected(); }
+        return;
+      }
+      if (e.key === 'F3') { e.preventDefault(); toggleOption('osnap'); }
+      if (e.key === 'F8') { e.preventDefault(); toggleOption('ortho'); }
+      if (e.key === 'F10') { e.preventDefault(); toggleOption('polar'); }
+      if (e.ctrlKey) {
+        if (e.key.toLowerCase() === 'c') clipboard = Array.from(selection).map(e => e.clone());
+        if (e.key.toLowerCase() === 'x') { clipboard = Array.from(selection).map(e => e.clone()); deleteSelected(); }
+        if (e.key.toLowerCase() === 'v' && clipboard.length > 0) {
+          saveState(); selection.clear();
+          let newId = entityIdCounter++;
+          clipboard.forEach(item => { let c = item.clone(); c.blockId = newId; c.move(new Vec2(1, 1)); entities.push(c); selection.add(c); });
+          unifyTopologyAndBuildFaces(); updateInspectorUI(); needsRender = true;
+        }
+        if (e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+        return;
+      }
+      if (state.pts.length > 0 && (/[0-9.]/.test(e.key))) {
+        typedDistance += e.key; showDynamicInput(typedDistance);
+      }
+    });
+
+    window.addEventListener('keyup', (e) => { state.isShift = e.shiftKey; });
+    ui.cmdInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') executeCliCommand(); });
+
+    function drawDimensionBadge(text, worldPt) {
+      let s = worldToScreen(worldPt);
+      ctx.save();
+      ctx.font = '700 12px "Segoe UI", sans-serif';
+      let metrics = ctx.measureText(text), pw = metrics.width + 10, ph = 18;
+      ctx.fillStyle = isDarkMode ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.95)';
+      ctx.strokeStyle = isDarkMode ? 'rgba(0, 229, 255, 0.6)' : 'rgba(2, 132, 199, 0.7)';
+      ctx.lineWidth = 1;
+      drawRoundedRectPolyfill(ctx, s.x - pw/2, s.y - ph/2, pw, ph, 4);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = isDarkMode ? '#ffffff' : '#0f172a';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(text, s.x, s.y);
+      ctx.restore();
+    }
+
+    function drawCenteredAreaLabel(text, worldPt, customHexColor = null) {
+      let s = worldToScreen(worldPt);
+      let mainColor = customHexColor || getDefaultEntityColor();
+      ctx.save();
+      ctx.font = '700 12px "Segoe UI", sans-serif';
+      let metrics = ctx.measureText(text), pw = metrics.width + 14, ph = 22;
+      ctx.fillStyle = isDarkMode ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.95)';
+      ctx.strokeStyle = mainColor; ctx.lineWidth = 1.5;
+      drawRoundedRectPolyfill(ctx, s.x - pw/2, s.y - ph/2, pw, ph, 5);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = mainColor; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(text, s.x, s.y);
+      ctx.restore();
+    }
+
+    function drawGrid() {
+      if (!options.grid) return;
+      const currentTheme = isDarkMode ? themeColors.dark : themeColors.light;
+      let targetPx = 40, rawStep = targetPx / view.scale;
+      let exp = Math.floor(Math.log10(rawStep)), stepBase = Math.pow(10, exp);
+      let mult = rawStep / stepBase, step = stepBase;
+      if (mult >= 5) step = stepBase * 5; else if (mult >= 2) step = stepBase * 2;
+      ui.statGridStep.textContent = `${MathUtils.formatNum(step)}m`;
+
+      let minWorldX = (-view.tx) / view.scale, maxWorldX = (width - view.tx) / view.scale;
+      let minWorldY = (view.ty - height) / view.scale, maxWorldY = (view.ty) / view.scale;
+      let startX = Math.floor(minWorldX / step) * step, endX = Math.ceil(maxWorldX / step) * step;
+      let startY = Math.floor(minWorldY / step) * step, endY = Math.ceil(maxWorldY / step) * step;
+
+      ctx.lineWidth = 1; ctx.strokeStyle = currentTheme.gridMinor; ctx.beginPath();
+      for (let x = startX; x <= endX; x += step) {
+        let scrX = Math.floor(x * view.scale + view.tx) + 0.5;
+        ctx.moveTo(scrX, 0); ctx.lineTo(scrX, height);
+      }
+      for (let y = startY; y <= endY; y += step) {
+        let scrY = Math.floor(-y * view.scale + view.ty) + 0.5;
+        ctx.moveTo(0, scrY); ctx.lineTo(width, scrY);
+      }
+      ctx.stroke();
+
+      let origin = worldToScreen(new Vec2(0,0));
+      ctx.strokeStyle = currentTheme.axisX; ctx.lineWidth = 1.8; ctx.beginPath();
+      ctx.moveTo(0, Math.floor(origin.y) + 0.5); ctx.lineTo(width, Math.floor(origin.y) + 0.5); ctx.stroke();
+      ctx.strokeStyle = currentTheme.axisY; ctx.lineWidth = 1.8; ctx.beginPath();
+      ctx.moveTo(Math.floor(origin.x) + 0.5, 0); ctx.lineTo(Math.floor(origin.x) + 0.5, height); ctx.stroke();
+    }
+
+    function startRenderLoop() {
+      const renderFrame = (time) => {
+        frameCount++;
+        if (time - lastFpsTime >= 1000) {
+          document.getElementById('fps-counter').textContent = `${frameCount} FPS`;
+          frameCount = 0; lastFpsTime = time;
+        }
+        if (needsRender) { render(); needsRender = false; }
+        requestAnimationFrame(renderFrame);
+      };
+      requestAnimationFrame(renderFrame);
+    }
+
+    function render() {
+      const currentTheme = isDarkMode ? themeColors.dark : themeColors.light;
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = currentTheme.bg; ctx.fillRect(0, 0, width, height);
+      drawGrid();
+
+      ctx.save();
+      ctx.translate(view.tx, view.ty); ctx.scale(view.scale, -view.scale);
+
+      detectedFaces.forEach(f => {
+        let layer = layers.find(l => l.id === f.layerId);
+        if (!layer || layer.visible) f.drawFill(ctx);
+      });
+      entities.forEach(ent => {
+        let layer = layers.find(l => l.id === ent.layerId);
+        if (layer && !layer.visible) return;
+        if (ent.type === 'Circle' || ent.type === 'Polyline') ent.drawFill(ctx);
+      });
+
+      entities.forEach(ent => {
+        let layer = layers.find(l => l.id === ent.layerId);
+        if (layer && !layer.visible) return;
+        if (ent.type === 'Text') return;
+        let isSel = selection.has(ent);
+        let baseColor = ent.customColor || getDefaultEntityColor();
+        ctx.strokeStyle = baseColor;
+        ctx.lineWidth = (isSel ? 2.8 : 1.5) / view.scale;
+        if (isSel) { ctx.shadowColor = baseColor; ctx.shadowBlur = isDarkMode ? 16 : 4; } else { ctx.shadowBlur = 0; }
+        ent.draw(ctx);
+        ctx.shadowBlur = 0;
+
+        if (isSel && state.tool === 'SELECT') {
+          let gSize = 7.0 / view.scale;
+          ent.getGrips().forEach(g => {
+            let isHot = state.activeHotGripPos && g.dist(state.activeHotGripPos) < 0.05;
+            ctx.fillStyle = isHot ? '#ef4444' : '#007acc';
+            ctx.strokeStyle = isHot ? '#ffffff' : '#004f80';
+            ctx.lineWidth = 1.0 / view.scale;
+            ctx.fillRect(g.x - gSize/2, g.y - gSize/2, gSize, gSize);
+            ctx.strokeRect(g.x - gSize/2, g.y - gSize/2, gSize, gSize);
+          });
+        }
+      });
+
+      if (state.pts.length > 0) {
+        let activeBuildingColor = (selection.size > 0 && Array.from(selection)[0].customColor) ? Array.from(selection)[0].customColor : '#ff9d00';
+        ctx.strokeStyle = activeBuildingColor; ctx.lineWidth = 2.2 / view.scale;
+        ctx.shadowColor = activeBuildingColor; ctx.shadowBlur = isDarkMode ? 14 : 2;
+        ctx.setLineDash([6/view.scale, 4/view.scale]);
+        let pLast = state.pts[state.pts.length - 1];
+
+        if (state.tool === 'LINE') {
+          ctx.beginPath(); ctx.moveTo(pLast.x, pLast.y); ctx.lineTo(snappedPos.x, snappedPos.y); ctx.stroke();
+          if (activeSnap === 'close_guide') {
+            ctx.strokeStyle = '#2ecc71'; ctx.lineWidth = 2.4 / view.scale;
+            ctx.beginPath(); ctx.moveTo(snappedPos.x, snappedPos.y); ctx.lineTo(state.pts[0].x, state.pts[0].y); ctx.stroke();
+          }
+        } else if (state.tool === 'CIRCLE') {
+          ctx.beginPath(); ctx.arc(pLast.x, pLast.y, pLast.dist(snappedPos), 0, Math.PI*2); ctx.stroke();
+        } else if (state.tool === 'RECT') {
+          ctx.beginPath(); ctx.rect(pLast.x, pLast.y, snappedPos.x - pLast.x, snappedPos.y - pLast.y); ctx.stroke();
+        } else if (state.tool === 'ARC' && state.step === 2) {
+          let r = state.pts[0].dist(state.pts[1]);
+          let s = Vec2.angleBetween(state.pts[0], state.pts[1]);
+          let e = Vec2.angleBetween(state.pts[0], snappedPos);
+          ctx.beginPath(); ctx.arc(state.pts[0].x, state.pts[0].y, r, s, e); ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.shadowBlur = 0;
+      }
+
+      if (activeSnap) {
+        ctx.strokeStyle = '#2ecc71'; ctx.lineWidth = 2.0 / view.scale;
+        let sSize = 10.0 / view.scale;
+        if (activeSnap === 'point' || activeSnap === 'intersect' || activeSnap === 'close_guide') {
+          ctx.strokeRect(snappedPos.x - sSize/2, snappedPos.y - sSize/2, sSize, sSize);
+        } else if (activeSnap === 'nearest') {
+          ctx.beginPath(); ctx.arc(snappedPos.x, snappedPos.y, sSize/2, 0, Math.PI*2); ctx.stroke();
+        }
+      }
+      ctx.restore();
+
+      entities.forEach(ent => {
+        let layer = layers.find(l => l.id === ent.layerId);
+        if (layer && !layer.visible) return;
+        if (ent.type === 'Text') {
+          let isSel = selection.has(ent);
+          ent.draw(ctx);
+          if (isSel && state.tool === 'SELECT') {
+            let s = worldToScreen(ent.pos);
+            ctx.save();
+            ctx.strokeStyle = currentTheme.entitySelected; ctx.lineWidth = 1.5;
+            ctx.strokeRect(s.x - 4, s.y - ent.fontSize, (ent.text.length * ent.fontSize * 0.55 * ent.tracking) + 8, ent.fontSize + 8);
+            ctx.fillStyle = '#007acc'; ctx.fillRect(s.x - 3.5, s.y - 3.5, 7, 7);
+            ctx.restore();
+          }
+        }
+      });
+
+      if (options.showLengths) {
+        entities.forEach(ent => {
+          let layer = layers.find(l => l.id === ent.layerId);
+          if (layer && !layer.visible) return;
+          if (ent.type === 'Line') drawDimensionBadge(`${MathUtils.formatNum(ent.getLength())} m`, ent.getCentroid());
+          else if (ent.type === 'Polyline') ent.getLines().forEach(l => drawDimensionBadge(`${MathUtils.formatNum(l.getLength())} m`, l.getCentroid()));
+          else if (ent.type === 'Circle') {
+            let center = ent.getCentroid();
+            drawDimensionBadge(`r: ${MathUtils.formatNum(ent.r)} m`, new Vec2(center.x + ent.r/2, center.y));
+          } else if (ent.type === 'Arc') {
+            drawDimensionBadge(`L: ${MathUtils.formatNum(ent.getLength())} m`, ent.getCentroid());
+          }
+        });
+      }
+
+      if (options.showAreas) {
+        let renderedCentroids = [];
+        detectedFaces.forEach(face => {
+          let layer = layers.find(l => l.id === face.layerId);
+          if (layer && !layer.visible) return;
+          let center = face.getCentroid(), area = face.getArea();
+          if (center && area > 0.01) {
+            drawCenteredAreaLabel(`Área: ${MathUtils.formatNum(area)} m²`, center, face.customColor);
+            renderedCentroids.push(center);
+          }
+        });
+        entities.forEach(ent => {
+          let layer = layers.find(l => l.id === ent.layerId);
+          if (layer && !layer.visible) return;
+          if (ent.type === 'Circle') {
+            let center = ent.getCentroid(), area = ent.getArea();
+            if (center && area > 0.01) drawCenteredAreaLabel(`Área: ${MathUtils.formatNum(area)} m²`, center, ent.customColor);
+          } else if (ent.type === 'Polyline' && ent.isClosed) {
+            let center = ent.getCentroid(), area = ent.getArea();
+            if (center && area > 0.01) {
+              if (!renderedCentroids.some(c => c.dist(center) < 0.1)) {
+                drawCenteredAreaLabel(`Área: ${MathUtils.formatNum(area)} m²`, center, ent.customColor);
+                renderedCentroids.push(center);
+              }
+            }
+          }
+        });
+      }
+    }
+
+    function calculateRealSelectionArea() {
+      let totalArea = 0;
+      if (selection.size > 0) {
+        let selectedBlockSet = new Set();
+        selection.forEach(e => { if (e.blockId !== null && e.blockId !== undefined) selectedBlockSet.add(e.blockId); });
+        if (detectedFaces.length > 0) {
+          detectedFaces.forEach(f => {
+            let faceBelongsToSelection = (f.blockId !== null && selectedBlockSet.has(f.blockId)) || f.points.every(pt => 
+              Array.from(selection).some(e => {
+                if (e.type === 'Line') return e.p1.equals(pt, 0.1) || e.p2.equals(pt, 0.1);
+                if (e.type === 'Polyline') return e.points.some(p => p.equals(pt, 0.1));
+                return false;
+              })
+            );
+            if (faceBelongsToSelection) totalArea += f.getArea();
+          });
+        }
+        if (totalArea === 0) {
+          selection.forEach(e => { if (e.type === 'Circle' || (e.type === 'Polyline' && e.isClosed)) totalArea += e.getArea(); });
+        }
+      }
+      return Math.round(totalArea * 1000) / 1000;
+    }
+
+    function updateInspectorUI() {
+      let figureBlockIds = new Set(), textCount = 0;
+      entities.forEach(ent => {
+        let layer = layers.find(l => l.id === ent.layerId);
+        if (layer && !layer.visible) return;
+        if (ent.type === 'Text') textCount++;
+        else figureBlockIds.add(ent.blockId !== null && ent.blockId !== undefined ? ent.blockId : ent.id);
+      });
+      let selectedBlockIds = new Set(), selectedSidesCount = 0;
+      selection.forEach(ent => {
+        if (ent.type !== 'Text') {
+          selectedBlockIds.add(ent.blockId !== null && ent.blockId !== undefined ? ent.blockId : ent.id);
+          if (ent.type === 'Line') selectedSidesCount += 1;
+          else if (ent.type === 'Polyline') selectedSidesCount += ent.getLines().length;
+          else if (ent.type === 'Circle' || ent.type === 'Arc') selectedSidesCount += 1;
+        }
+      });
+      ui.propTotalFigures.textContent = figureBlockIds.size;
+      ui.propTotalTexts.textContent = textCount;
+      ui.propSelectedCount.textContent = selectedBlockIds.size;
+      ui.propSelectedSides.textContent = selectedSidesCount;
+
+      let firstSelected = selection.size === 1 ? Array.from(selection)[0] : null;
+      let hasSelectedText = (firstSelected && firstSelected.type === 'Text');
+
+      if (sidebarContainer && textDetailsEl) {
+        if (hasSelectedText) {
+          if (!isTextSectionMoved) {
+            sidebarContainer.insertBefore(textDetailsEl, sidebarContainer.firstChild);
+            isTextSectionMoved = true;
+          }
+          let content = document.getElementById('sec-textprop-content');
+          let icon = document.getElementById('sec-textprop-icon');
+          if (content) content.classList.remove('hidden');
+          if (icon) icon.className = 'fa-solid fa-chevron-down text-xs text-[var(--text-muted)]';
+        } else {
+          if (isTextSectionMoved) {
+            if (textDetailsNextSibling && textDetailsNextSibling.parentNode === sidebarContainer) {
+              sidebarContainer.insertBefore(textDetailsEl, textDetailsNextSibling);
+            } else {
+              sidebarContainer.appendChild(textDetailsEl);
+            }
+            isTextSectionMoved = false;
+          }
+          let content = document.getElementById('sec-textprop-content');
+          let icon = document.getElementById('sec-textprop-icon');
+          if (content) content.classList.add('hidden');
+          if (icon) icon.className = 'fa-solid fa-chevron-right text-xs text-[var(--text-muted)]';
+        }
+      }
+
+      if (hasSelectedText) {
+        document.getElementById('prop-text-content').value = firstSelected.text;
+        document.getElementById('prop-text-font').value = firstSelected.fontFamily || 'Segoe UI';
+        document.getElementById('prop-text-size').value = firstSelected.fontSize || 16;
+        document.getElementById('fontsize-val-disp').textContent = `${firstSelected.fontSize || 16}px`;
+        document.getElementById('prop-text-tracking').value = firstSelected.tracking || 1.0;
+        document.getElementById('tracking-val-disp').textContent = `${(firstSelected.tracking || 1.0).toFixed(1)}x`;
+        document.getElementById('prop-text-color').value = firstSelected.color || getDefaultEntityColor();
+        document.getElementById('prop-text-strokecolor').value = firstSelected.strokeColor || '#000000';
+        document.getElementById('prop-text-strokewidth').value = firstSelected.strokeWidth || 0;
+        document.getElementById('strokewidth-val-disp').textContent = `${firstSelected.strokeWidth || 0}px`;
+      }
+
+      let totalArea = 0, totalLen = 0;
+      if (selection.size > 0) {
+        let targetEntities = Array.from(selection).filter(e => e.type !== 'Text');
+        targetEntities.forEach(e => { totalLen += e.getLength(); });
+        totalArea = (state.isDraggingElements && state.dragCachedArea !== null && state.dragCachedArea > 0) ? state.dragCachedArea : calculateRealSelectionArea();
+      }
+      ui.propLen.textContent = MathUtils.formatNum(totalLen);
+      ui.propArea.textContent = MathUtils.formatNum(totalArea);
+      let descuento = window.areaTotalDescontada || 0;
+      let areaNeto = Math.max(0, totalArea - descuento);
+      document.getElementById('lbl-area-neto').textContent = MathUtils.formatNum(areaNeto);
+    }
+
+    function deleteSelected() {
+      if (selection.size === 0) return;
+      saveState();
+      entities = entities.filter(e => {
+        if (!selection.has(e)) return true;
+        let layer = layers.find(l => l.id === e.layerId);
+        return layer && layer.locked ? true : false;
+      });
+      selection.clear();
+      unifyTopologyAndBuildFaces(); updateInspectorUI(); needsRender = true;
+      showToast('Entidad eliminada');
+      logCli('DEL: Objetos seleccionados eliminados.');
+    }
+
+    function clearCanvas() {
+      if (confirm("¿Está seguro de borrar todo el plano de trabajo?")) {
+        saveState(); entities = []; selection.clear();
+        unifyTopologyAndBuildFaces(); updateInspectorUI(); needsRender = true;
+        showToast('Plano limpiado por completo');
+        logCli('CLEAR: Se ha vaciado todo el plano.');
+      }
+    }
+
+    function saveProjectJSON() {
+      let exportData = {
+        layers: layers,
+        activeLayerId: activeLayerId,
+        entities: entities.map(e => ({ type: e.type, blockId: e.blockId, customColor: e.customColor, fillOpacity: e.fillOpacity, layerId: e.layerId, data: e }))
+      };
+      let dataStr = JSON.stringify(exportData, null, 2);
+      localStorage.setItem('cadtec2d_data', dataStr);
+      let blob = new Blob([dataStr], { type: "application/json" });
+      let link = document.createElement('a'); link.download = "cadtec2d_proyecto.json"; link.href = URL.createObjectURL(blob); link.click();
+      showToast('Proyecto guardado');
+      logCli('SAVE: Proyecto exportado correctamente.');
+    }
+
+    function triggerLoadProject() { document.getElementById('file-input-project').click(); }
+
+    function loadProjectFile(event) {
+      let file = event.target.files[0];
+      if (!file) return;
+      let reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          let parsed = JSON.parse(e.target.result);
+          saveState();
+          
+          let rawEntities = [];
+          if (Array.isArray(parsed)) {
+            rawEntities = parsed;
+          } else if (parsed && typeof parsed === 'object') {
+            if (parsed.layers && Array.isArray(parsed.layers)) {
+              layers = parsed.layers;
+            }
+            if (parsed.activeLayerId !== undefined) {
+              activeLayerId = parsed.activeLayerId;
+            }
+            rawEntities = parsed.entities || [];
+          }
+
+          entities = rawEntities.map(item => parseEntityFromData(item)).filter(e => e !== null);
+          selection.clear(); 
+          renderLayersUI();
+          unifyTopologyAndBuildFaces(); 
+          updateInspectorUI(); 
+          needsRender = true;
+          showToast('Proyecto y capas cargados exitosamente');
+          logCli('LOAD: Proyecto y estructura de capas importados.');
+        } catch (err) { showToast('Error al leer el archivo'); }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    function exportSVG() {
+      let bgHex = isDarkMode ? "#1e1e1e" : "#f8fafc";
+      let defaultStroke = getDefaultEntityColor();
+      let badgeBg = isDarkMode ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.95)';
+      let badgeBorder = isDarkMode ? 'rgba(0, 229, 255, 0.6)' : 'rgba(2, 132, 199, 0.7)';
+      let badgeTextCol = isDarkMode ? '#ffffff' : '#0f172a';
+
+      let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" style="background:${bgHex}">`;
+      
+      detectedFaces.forEach(f => {
+        let layer = layers.find(l => l.id === f.layerId);
+        if (layer && !layer.visible) return;
+        if (f.points.length >= 3) {
+          let pts = f.points.map(p => { let s = worldToScreen(p); return `${s.x.toFixed(2)},${s.y.toFixed(2)}`; }).join(' ');
+          let col = f.customColor || defaultStroke;
+          svg += `\n  <polygon points="${pts}" fill="${hexToRgba(col, f.fillOpacity)}" />`;
+        }
+      });
+
+      entities.forEach(e => {
+        let layer = layers.find(l => l.id === e.layerId);
+        if (layer && !layer.visible) return;
+        let strokeHex = e.customColor || defaultStroke;
+        if (e.type === 'Line') {
+          let p1 = worldToScreen(e.p1), p2 = worldToScreen(e.p2);
+          svg += `\n  <line x1="${p1.x.toFixed(2)}" y1="${p1.y.toFixed(2)}" x2="${p2.x.toFixed(2)}" y2="${p2.y.toFixed(2)}" stroke="${strokeHex}" stroke-width="2"/>`;
+        } else if (e.type === 'Circle') {
+          let c = worldToScreen(e.center), r = e.r * view.scale;
+          svg += `\n  <circle cx="${c.x.toFixed(2)}" cy="${c.y.toFixed(2)}" r="${r.toFixed(2)}" stroke="${strokeHex}" stroke-width="2" fill="${hexToRgba(strokeHex, e.fillOpacity)}"/>`;
+        } else if (e.type === 'Polyline') {
+          let pts = e.points.map(p => { let s = worldToScreen(p); return `${s.x.toFixed(2)},${s.y.toFixed(2)}`; }).join(' ');
+          svg += `\n  <polyline points="${pts}" stroke="${strokeHex}" stroke-width="2" fill="${e.isClosed ? hexToRgba(strokeHex, e.fillOpacity) : "none"}"/>`;
+        } else if (e.type === 'Text') {
+          let s = worldToScreen(e.pos);
+          svg += `\n  <text x="${s.x.toFixed(2)}" y="${s.y.toFixed(2)}" fill="${e.color || strokeHex}" stroke="${e.strokeColor}" stroke-width="${e.strokeWidth}" font-size="${e.fontSize}" font-family="${e.fontFamily}">${e.text}</text>`;
+        }
+      });
+
+      if (options.showLengths) {
+        entities.forEach(ent => {
+          let layer = layers.find(l => l.id === ent.layerId);
+          if (layer && !layer.visible) return;
+          if (ent.type === 'Line') {
+            let c = worldToScreen(ent.getCentroid());
+            let txt = `${MathUtils.formatNum(ent.getLength())} m`;
+            svg += `\n  <g transform="translate(${c.x}, ${c.y})"><rect x="-28" y="-9" width="56" height="18" rx="4" fill="${badgeBg}" stroke="${badgeBorder}" stroke-width="1"/><text x="0" y="3" font-size="10" font-family="Segoe UI" font-weight="bold" fill="${badgeTextCol}" text-anchor="middle">${txt}</text></g>`;
+          }
+        });
+      }
+
+      if (options.showAreas) {
+        detectedFaces.forEach(face => {
+          let layer = layers.find(l => l.id === face.layerId);
+          if (layer && !layer.visible) return;
+          let center = worldToScreen(face.getCentroid());
+          let area = face.getArea();
+          if (center && area > 0.01) {
+            let txt = `Área: ${MathUtils.formatNum(area)} m²`;
+            let col = face.customColor || defaultStroke;
+            svg += `\n  <g transform="translate(${center.x}, ${center.y})"><rect x="-42" y="-11" width="84" height="22" rx="5" fill="${badgeBg}" stroke="${col}" stroke-width="1.5"/><text x="0" y="4" font-size="10" font-family="Segoe UI" font-weight="bold" fill="${col}" text-anchor="middle">${txt}</text></g>`;
+          }
+        });
+      }
+
+      svg += `\n</svg>`;
+      let blob = new Blob([svg], {type: "image/svg+xml"});
+      let link = document.createElement('a'); link.download = "plano_cadtec2d.svg"; link.href = URL.createObjectURL(blob); link.click();
+      showToast('SVG exportado exitosamente');
+      logCli('EXPORT: Archivo SVG vectorial generado.');
+    }
+
+    function exportImagePNG() {
+      if (typeof html2canvas === 'undefined') {
+        alert('Librería html2canvas no disponible.');
+        return;
+      }
+      
+      const toast = document.getElementById('toast-notification');
+      if (toast) toast.style.display = 'none';
+
+      html2canvas(document.body, {
+        backgroundColor: isDarkMode ? '#1e1e1e' : '#f8fafc',
+        scale: 3,
+        logging: false,
+        useCORS: true,
+        onclone: (clonedDoc) => {
+          const canvases = clonedDoc.querySelectorAll('canvas');
+          canvases.forEach(c => {
+            let cCtx = c.getContext('2d');
+            if (cCtx) {
+              cCtx.imageSmoothingEnabled = true;
+              cCtx.imageSmoothingQuality = 'high';
+            }
+          });
+        }
+      }).then(canvasImg => {
+        if (toast) toast.style.display = '';
+        let link = document.createElement('a');
+        link.download = 'cadtec2d_captura_alta_calidad.png';
+        link.href = canvasImg.toDataURL('image/png', 1.0);
+        link.click();
+        showToast('Captura limpia de alta resolución guardada');
+        logCli('IMAGE: Captura de pantalla en alta resolución generada.');
+      }).catch(err => {
+        if (toast) toast.style.display = '';
+        showToast('Error al generar la imagen');
+      });
+    }
+
+    function executeCliCommand() {
+      const input = document.getElementById('command-input');
+      const cmd = input.value.trim().toUpperCase();
+      input.value = '';
+      if (!cmd) return;
+      logCli(`> ${cmd}`);
+      switch (cmd) {
+        case 'L': case 'LINE': setTool('LINE'); break;
+        case 'REC': case 'RECT': setTool('RECT'); break;
+        case 'C': case 'CIRCLE': setTool('CIRCLE'); break;
+        case 'A': case 'ARC': setTool('ARC'); break;
+        case 'TEXT': case 'T': setTool('TEXT'); break;
+        case 'TR': case 'TRIM': setTool('TRIM'); break;
+        case 'M': case 'MOVE': setTool('MOVE'); break;
+        case 'CO': case 'COPY': setTool('COPY'); break;
+        case 'UNDO': case 'U': undo(); break;
+        case 'CLEAR': clearCanvas(); break;
+        case 'SAVE': saveProjectJSON(); break;
+        case 'LOAD': triggerLoadProject(); break;
+        case 'EXPORT': exportSVG(); break;
+        case 'IMAGE': exportImagePNG(); break;
+        case 'DEL': case 'DELETE': deleteSelected(); break;
+        case 'HELP': logCli('Comandos: L, REC, C, A, TEXT, TR, M, CO, UNDO, SAVE, LOAD, EXPORT, IMAGE, CLEAR, DEL, HELP'); break;
+        default: logCli(`Comando no reconocido: '${cmd}'`);
+      }
+    }
+
+    function logCli(msg) {
+      const log = document.getElementById('cli-log');
+      const div = document.createElement('div'); div.textContent = msg;
+      log.appendChild(div); log.scrollTop = log.scrollHeight;
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast-notification');
+      const toastMsg = document.getElementById('toast-message');
+      toastMsg.textContent = message;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2500);
+    }
+
+    window.onload = () => {
+      sidebarContainer = document.getElementById('sidebar-container');
+      textDetailsEl = document.getElementById('inspector-details');
+      textDetailsNextSibling = textDetailsEl ? textDetailsEl.nextElementSibling : null;
+
+      initCanvasSize();
+      renderLayersUI();
+      let p1 = new Vec2(-3, -2), p2 = new Vec2(3, -2), p3 = new Vec2(3, 2), p4 = new Vec2(-1, 2), p5 = new Vec2(-3, 0.5);
+      let bId = entityIdCounter++;
+      entities.push(
+        Object.assign(new Line(p1, p2), { blockId: bId, layerId: 0 }),
+        Object.assign(new Line(p2, p3), { blockId: bId, layerId: 0 }),
+        Object.assign(new Line(p3, p4), { blockId: bId, layerId: 0 }),
+        Object.assign(new Line(p4, p5), { blockId: bId, layerId: 0 }),
+        Object.assign(new Line(p5, p1), { blockId: bId, layerId: 0 })
+      );
+      let txt = new TextEntity(new Vec2(-2, -3), "Plano Principal", null, 18, "Segoe UI", 1.0, '#000000', 0);
+      txt.layerId = 0;
+      entities.push(txt);
+      unifyTopologyAndBuildFaces();
+      updateInspectorUI();
+      needsRender = true;
+      startRenderLoop();
+    };
+  </script>
+</body>
+</html>
