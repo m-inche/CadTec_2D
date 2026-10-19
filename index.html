@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CadTec 2D - Web V1.1</title>
+  <title>CadTec 2D - Web 1.1V</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
@@ -112,6 +112,9 @@
       </button>
       <button id="tool-rect" onclick="setTool('RECT')" class="tool-btn px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 hover:bg-[var(--cad-border)] shrink-0" title="Rectángulo">
         <i class="fa-regular fa-square text-[10px]"></i><span>Rectángulo</span>
+      </button>
+      <button id="tool-poly" onclick="setTool('POLYGON')" class="tool-btn px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 hover:bg-[var(--cad-border)] shrink-0" title="Polígono Regular / Triángulo">
+        <i class="fa-solid fa-shapes text-[10px]"></i><span>Polígono</span>
       </button>
       <button id="tool-circle" onclick="setTool('CIRCLE')" class="tool-btn px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 hover:bg-[var(--cad-border)] shrink-0" title="Círculo">
         <i class="fa-regular fa-circle text-[10px]"></i><span>Círculo</span>
@@ -452,7 +455,7 @@
       <span id="command-prompt-label" class="text-cadAccent font-bold text-xs mr-2 tracking-wider flex items-center space-x-1 shrink-0">
         <i class="fa-solid fa-terminal text-[10px]"></i><span>COMANDO &gt;</span>
       </span>
-      <input type="text" id="command-input" class="flex-1 bg-[var(--cad-bg)] border border-[var(--cad-border)] rounded px-2.5 py-0.5 text-xs text-[var(--text-color)] focus:outline-none focus:border-cadAccent font-mono tracking-wide" placeholder="Escribe comando (L, C, REC, TEXT, TR, UNDO)..." autocomplete="off">
+      <input type="text" id="command-input" class="flex-1 bg-[var(--cad-bg)] border border-[var(--cad-border)] rounded px-2.5 py-0.5 text-xs text-[var(--text-color)] focus:outline-none focus:border-cadAccent font-mono tracking-wide" placeholder="Escribe comando (L, C, REC, POLY, TEXT, TR, UNDO)..." autocomplete="off">
       <button onclick="executeCliCommand()" class="ml-2 px-2.5 py-0.5 bg-cadAccent hover:bg-cadAccentHover text-white rounded text-xs font-semibold transition">Ejecutar</button>
     </div>
     <div class="bg-[var(--cli-bg)] px-3 py-0.5 flex items-center justify-between text-[10px] text-[var(--text-muted)] border-t border-[var(--cad-border)]">
@@ -957,7 +960,7 @@
         }
         if (other.type === 'Circle') return MathUtils.intersectLineCircle(this.p1, this.p2, other.center, other.r);
         if (other.type === 'Arc') return MathUtils.intersectLineCircle(this.p1, this.p2, other.center, other.r).filter(p => MathUtils.isAngleBetween(Vec2.angleBetween(other.center, p), other.startAng, other.endAng));
-        if (other.type === 'Polyline') return other.getIntersections(this);
+        if (other.type === 'Polyline' || other.type === 'Polygon') return other.getIntersections(this);
         return [];
       }
     }
@@ -994,7 +997,7 @@
         if (other.type === 'Line') return MathUtils.intersectLineCircle(other.p1, other.p2, this.center, this.r);
         if (other.type === 'Circle') return MathUtils.intersectCircleCircle(this.center, this.r, other.center, other.r);
         if (other.type === 'Arc') return MathUtils.intersectCircleCircle(this.center, this.r, other.center, other.r).filter(p => MathUtils.isAngleBetween(Vec2.angleBetween(other.center, p), other.startAng, other.endAng));
-        if (other.type === 'Polyline') return other.getIntersections(this);
+        if (other.type === 'Polyline' || other.type === 'Polygon') return other.getIntersections(this);
         return [];
       }
     }
@@ -1029,7 +1032,7 @@
         let ints = [];
         if (other.type === 'Line') ints = MathUtils.intersectLineCircle(other.p1, other.p2, this.center, this.r);
         if (other.type === 'Circle' || other.type === 'Arc') ints = MathUtils.intersectCircleCircle(this.center, this.r, other.center, other.r);
-        if (other.type === 'Polyline') return other.getIntersections(this);
+        if (other.type === 'Polyline' || other.type === 'Polygon') return other.getIntersections(this);
         return ints.filter(p => {
           let a1 = Vec2.angleBetween(this.center, p);
           let inThis = MathUtils.isAngleBetween(a1, this.startAng, this.endAng);
@@ -1106,6 +1109,117 @@
         });
         return { minX, minY, maxX, maxY };
       }
+      getIntersections(other) {
+        let ints = [];
+        this.getLines().forEach(l => ints.push(...l.getIntersections(other)));
+        return ints;
+      }
+    }
+
+    class RegularPolygon extends Entity {
+      constructor(center, radius, sides = 3, rotation = 0) {
+        super();
+        this.center = center;
+        this.r = radius;
+        this.sides = sides;
+        this.rotation = rotation;
+        this.type = 'Polygon';
+        this.blockId = this.id;
+      }
+
+      getVertices() {
+        let pts = [];
+        for (let i = 0; i < this.sides; i++) {
+          let angle = this.rotation + (i * 2 * Math.PI) / this.sides;
+          let x = this.center.x + this.r * Math.cos(angle);
+          let y = this.center.y + this.r * Math.sin(angle);
+          pts.push(new Vec2(x, y));
+        }
+        return pts;
+      }
+
+      getLines() {
+        let pts = this.getVertices();
+        let lines = [];
+        for (let i = 0; i < pts.length; i++) {
+          lines.push(new Line(pts[i], pts[(i + 1) % pts.length]));
+        }
+        return lines;
+      }
+
+      draw(ctx) {
+        let pts = this.getVertices();
+        if (pts.length < 2) return;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      drawFill(ctx) {
+        let pts = this.getVertices();
+        if (pts.length < 3) return;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.closePath();
+        ctx.fillStyle = hexToRgba(this.customColor || getDefaultEntityColor(), this.fillOpacity);
+        ctx.fill();
+      }
+
+      getGrips() {
+        return [this.center, ...this.getVertices()];
+      }
+
+      updateGrip(index, pos) {
+        if (index === 0) {
+          this.center = pos;
+        } else {
+          this.r = Math.max(0.01, this.center.dist(pos));
+          this.rotation = Vec2.angleBetween(this.center, pos);
+        }
+      }
+
+      move(delta) { this.center = this.center.add(delta); }
+
+      clone() {
+        let p = new RegularPolygon(this.center.clone(), this.r, this.sides, this.rotation);
+        p.blockId = this.blockId; p.customColor = this.customColor; p.fillOpacity = this.fillOpacity; p.layerId = this.layerId;
+        return p;
+      }
+
+      getLength() {
+        let pts = this.getVertices(), len = 0;
+        for (let i = 0; i < pts.length; i++) {
+          let next = pts[(i + 1) % pts.length];
+          len += pts[i].dist(next);
+        }
+        return len;
+      }
+
+      getArea() {
+        let pts = this.getVertices(), area = 0;
+        for (let i = 0; i < pts.length; i++) {
+          let j = (i + 1) % pts.length;
+          area += pts[i].x * pts[j].y;
+          area -= pts[j].x * pts[i].y;
+        }
+        return Math.abs(area) / 2;
+      }
+
+      getCentroid() { return this.center.clone(); }
+
+      getBounds() {
+        let pts = this.getVertices();
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        pts.forEach(p => {
+          if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+        });
+        return { minX, minY, maxX, maxY };
+      }
+
       getIntersections(other) {
         let ints = [];
         this.getLines().forEach(l => ints.push(...l.getIntersections(other)));
@@ -1240,6 +1354,8 @@
       } else if (type === 'Polyline' && d.points) {
         let pts = d.points.map(p => new Vec2(p.x, p.y));
         ent = new Polyline(pts, d.isClosed);
+      } else if (type === 'Polygon' && d.center) {
+        ent = new RegularPolygon(new Vec2(d.center.x, d.center.y), d.r, d.sides || 3, d.rotation || 0);
       } else if (type === 'Text' && d.pos) {
         ent = new TextEntity(new Vec2(d.pos.x, d.pos.y), d.text, d.color, d.fontSize || 16, d.fontFamily || 'Segoe UI', d.tracking || 1.0, d.strokeColor || '#000000', d.strokeWidth || 0);
       }
@@ -1304,7 +1420,7 @@
       state.stretchedGrips = []; state.activeHotGripPos = null;
       document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
       const btnMap = {
-        'SELECT': 'tool-select', 'LINE': 'tool-line', 'RECT': 'tool-rect',
+        'SELECT': 'tool-select', 'LINE': 'tool-line', 'RECT': 'tool-rect', 'POLYGON': 'tool-poly',
         'CIRCLE': 'tool-circle', 'ARC': 'tool-arc', 'TEXT': 'tool-text',
         'TRIM': 'tool-trim', 'MOVE': 'tool-move', 'COPY': 'tool-copy', 'PAN': 'tool-pan'
       };
@@ -1312,7 +1428,7 @@
       hideDynamicInput();
       ui.quickMeasure.style.display = 'none';
       const toolTexts = {
-        'SELECT': 'Seleccionar / Grips', 'LINE': 'Línea', 'RECT': 'Rectángulo',
+        'SELECT': 'Seleccionar / Grips', 'LINE': 'Línea', 'RECT': 'Rectángulo', 'POLYGON': 'Polígono Regular',
         'CIRCLE': 'Círculo', 'ARC': 'Arco', 'TEXT': 'Texto', 'TRIM': 'Recortar',
         'MOVE': 'Mover', 'COPY': 'Copiar', 'PAN': 'Pan'
       };
@@ -1394,7 +1510,7 @@
         let segBlockId = e.blockId !== undefined ? e.blockId : null;
         if (e.type === 'Line') {
           allSegments.push({ p1: e.p1.clone(), p2: e.p2.clone(), blockId: segBlockId, customColor: e.customColor, fillOpacity: e.fillOpacity, layerId: e.layerId });
-        } else if (e.type === 'Polyline') {
+        } else if (e.type === 'Polyline' || e.type === 'Polygon') {
           let lines = e.getLines();
           lines.forEach(line => allSegments.push({ p1: line.p1.clone(), p2: line.p2.clone(), blockId: segBlockId, customColor: e.customColor, fillOpacity: e.fillOpacity, layerId: e.layerId }));
         }
@@ -1668,7 +1784,7 @@
         needsRender = true; return;
       }
 
-      if (state.pts.length > 0 && ['LINE', 'CIRCLE', 'ARC', 'RECT'].includes(state.tool)) {
+      if (state.pts.length > 0 && ['LINE', 'CIRCLE', 'ARC', 'RECT', 'POLYGON'].includes(state.tool)) {
         ui.quickMeasure.style.display = 'block';
         ui.quickMeasure.style.left = mouseScreen.x + 'px';
         ui.quickMeasure.style.top = mouseScreen.y + 'px';
@@ -1767,6 +1883,29 @@
           showToast('Rectángulo creado');
         }
       }
+      else if (state.tool === 'POLYGON') {
+        let activeLayer = layers.find(l => l.id === activeLayerId);
+        if (activeLayer && (activeLayer.locked || !activeLayer.visible)) { showToast('Capa bloqueada u oculta'); return; }
+        state.pts.push(posWorld.clone()); state.step++;
+        if (state.step === 1) updateCommandPrompt('COMANDO: Seleccione radio y rotación');
+        if (state.step === 2) {
+          saveState();
+          let center = state.pts[0];
+          let r = center.dist(state.pts[1]);
+          let rot = Vec2.angleBetween(center, state.pts[1]);
+          
+          let sidesInput = prompt("Ingrese el número de lados (3 = Triángulo, 4 = Cuadrado, 5 = Pentágono...):", "3");
+          let sides = parseInt(sidesInput) || 3;
+          if (sides < 3) sides = 3;
+
+          let polyEnt = new RegularPolygon(center, r, sides, rot);
+          polyEnt.layerId = activeLayerId;
+          entities.push(polyEnt);
+
+          unifyTopologyAndBuildFaces(); setTool('SELECT');
+          showToast(`Polígono de ${sides} lados creado`);
+        }
+      }
       else if (state.tool === 'ARC') {
         let activeLayer = layers.find(l => l.id === activeLayerId);
         if (activeLayer && (activeLayer.locked || !activeLayer.visible)) { showToast('Capa bloqueada u oculta'); return; }
@@ -1850,7 +1989,7 @@
           if (layer && (!layer.visible || layer.locked)) return;
           if (ent.type === 'Line' && MathUtils.distToSegment(mouseWorld, ent.p1, ent.p2) < minDist) clicked = ent;
           else if ((ent.type === 'Circle' || ent.type === 'Arc') && Math.abs(ent.center.dist(mouseWorld) - ent.r) < minDist) clicked = ent;
-          else if (ent.type === 'Polyline') {
+          else if (ent.type === 'Polyline' || ent.type === 'Polygon') {
             ent.getLines().forEach(l => { if (MathUtils.distToSegment(mouseWorld, l.p1, l.p2) < minDist) clicked = ent; });
           } else if (ent.type === 'Text') {
             let b = ent.getBounds();
@@ -1959,7 +2098,7 @@
         } else if (ent.type === 'Circle') {
           let d = Math.abs(ent.center.dist(clickWorld) - ent.r);
           if (d < minDist) { target = ent; minDist = d; }
-        } else if (ent.type === 'Polyline') {
+        } else if (ent.type === 'Polyline' || ent.type === 'Polygon') {
           ent.getLines().forEach(l => {
             let d = MathUtils.distToSegment(clickWorld, l.p1, l.p2);
             if (d < minDist) { target = ent; minDist = d; }
@@ -1980,7 +2119,7 @@
         showToast('Texto eliminado'); return;
       }
 
-      if (target.type === 'Polyline') {
+      if (target.type === 'Polyline' || target.type === 'Polygon') {
         let lines = target.getLines();
         let closestLineIdx = -1;
         let minLineDist = Infinity;
@@ -2211,7 +2350,7 @@
       entities.forEach(ent => {
         let layer = layers.find(l => l.id === ent.layerId);
         if (layer && !layer.visible) return;
-        if (ent.type === 'Circle' || ent.type === 'Polyline') ent.drawFill(ctx);
+        if (ent.type === 'Circle' || ent.type === 'Polyline' || ent.type === 'Polygon') ent.drawFill(ctx);
       });
 
       entities.forEach(ent => {
@@ -2256,6 +2395,9 @@
           ctx.beginPath(); ctx.arc(pLast.x, pLast.y, pLast.dist(snappedPos), 0, Math.PI*2); ctx.stroke();
         } else if (state.tool === 'RECT') {
           ctx.beginPath(); ctx.rect(pLast.x, pLast.y, snappedPos.x - pLast.x, snappedPos.y - pLast.y); ctx.stroke();
+        } else if (state.tool === 'POLYGON') {
+          ctx.beginPath(); ctx.arc(pLast.x, pLast.y, pLast.dist(snappedPos), 0, Math.PI*2); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(pLast.x, pLast.y); ctx.lineTo(snappedPos.x, snappedPos.y); ctx.stroke();
         } else if (state.tool === 'ARC' && state.step === 2) {
           let r = state.pts[0].dist(state.pts[1]);
           let s = Vec2.angleBetween(state.pts[0], state.pts[1]);
@@ -2298,7 +2440,7 @@
           let layer = layers.find(l => l.id === ent.layerId);
           if (layer && !layer.visible) return;
           if (ent.type === 'Line') drawDimensionBadge(`${MathUtils.formatNum(ent.getLength())} m`, ent.getCentroid());
-          else if (ent.type === 'Polyline') ent.getLines().forEach(l => drawDimensionBadge(`${MathUtils.formatNum(l.getLength())} m`, l.getCentroid()));
+          else if (ent.type === 'Polyline' || ent.type === 'Polygon') ent.getLines().forEach(l => drawDimensionBadge(`${MathUtils.formatNum(l.getLength())} m`, l.getCentroid()));
           else if (ent.type === 'Circle') {
             let center = ent.getCentroid();
             drawDimensionBadge(`r: ${MathUtils.formatNum(ent.r)} m`, new Vec2(center.x + ent.r/2, center.y));
@@ -2325,7 +2467,7 @@
           if (ent.type === 'Circle') {
             let center = ent.getCentroid(), area = ent.getArea();
             if (center && area > 0.01) drawCenteredAreaLabel(`Área: ${MathUtils.formatNum(area)} m²`, center, ent.customColor);
-          } else if (ent.type === 'Polyline' && ent.isClosed) {
+          } else if ((ent.type === 'Polyline' && ent.isClosed) || ent.type === 'Polygon') {
             let center = ent.getCentroid(), area = ent.getArea();
             if (center && area > 0.01) {
               if (!renderedCentroids.some(c => c.dist(center) < 0.1)) {
@@ -2348,7 +2490,7 @@
             let faceBelongsToSelection = (f.blockId !== null && selectedBlockSet.has(f.blockId)) || f.points.every(pt => 
               Array.from(selection).some(e => {
                 if (e.type === 'Line') return e.p1.equals(pt, 0.1) || e.p2.equals(pt, 0.1);
-                if (e.type === 'Polyline') return e.points.some(p => p.equals(pt, 0.1));
+                if (e.type === 'Polyline' || e.type === 'Polygon') return e.getLines().some(l => l.p1.equals(pt, 0.1) || l.p2.equals(pt, 0.1));
                 return false;
               })
             );
@@ -2356,7 +2498,7 @@
           });
         }
         if (totalArea === 0) {
-          selection.forEach(e => { if (e.type === 'Circle' || (e.type === 'Polyline' && e.isClosed)) totalArea += e.getArea(); });
+          selection.forEach(e => { if (e.type === 'Circle' || (e.type === 'Polyline' && e.isClosed) || e.type === 'Polygon') totalArea += e.getArea(); });
         }
       }
       return Math.round(totalArea * 1000) / 1000;
@@ -2375,7 +2517,7 @@
         if (ent.type !== 'Text') {
           selectedBlockIds.add(ent.blockId !== null && ent.blockId !== undefined ? ent.blockId : ent.id);
           if (ent.type === 'Line') selectedSidesCount += 1;
-          else if (ent.type === 'Polyline') selectedSidesCount += ent.getLines().length;
+          else if (ent.type === 'Polyline' || ent.type === 'Polygon') selectedSidesCount += ent.getLines().length;
           else if (ent.type === 'Circle' || ent.type === 'Arc') selectedSidesCount += 1;
         }
       });
@@ -2543,9 +2685,9 @@
         } else if (e.type === 'Circle') {
           let c = worldToScreen(e.center), r = e.r * view.scale;
           svg += `\n  <circle cx="${c.x.toFixed(2)}" cy="${c.y.toFixed(2)}" r="${r.toFixed(2)}" stroke="${strokeHex}" stroke-width="2" fill="${hexToRgba(strokeHex, e.fillOpacity)}"/>`;
-        } else if (e.type === 'Polyline') {
-          let pts = e.points.map(p => { let s = worldToScreen(p); return `${s.x.toFixed(2)},${s.y.toFixed(2)}`; }).join(' ');
-          svg += `\n  <polyline points="${pts}" stroke="${strokeHex}" stroke-width="2" fill="${e.isClosed ? hexToRgba(strokeHex, e.fillOpacity) : "none"}"/>`;
+        } else if (e.type === 'Polyline' || e.type === 'Polygon') {
+          let pts = (e.type === 'Polyline' ? e.points : e.getVertices()).map(p => { let s = worldToScreen(p); return `${s.x.toFixed(2)},${s.y.toFixed(2)}`; }).join(' ');
+          svg += `\n  <polygon points="${pts}" stroke="${strokeHex}" stroke-width="2" fill="${hexToRgba(strokeHex, e.fillOpacity)}"/>`;
         } else if (e.type === 'Text') {
           let s = worldToScreen(e.pos);
           svg += `\n  <text x="${s.x.toFixed(2)}" y="${s.y.toFixed(2)}" fill="${e.color || strokeHex}" stroke="${e.strokeColor}" stroke-width="${e.strokeWidth}" font-size="${e.fontSize}" font-family="${e.fontFamily}">${e.text}</text>`;
@@ -2632,6 +2774,7 @@
       switch (cmd) {
         case 'L': case 'LINE': setTool('LINE'); break;
         case 'REC': case 'RECT': setTool('RECT'); break;
+        case 'POLY': case 'POLYGON': setTool('POLYGON'); break;
         case 'C': case 'CIRCLE': setTool('CIRCLE'); break;
         case 'A': case 'ARC': setTool('ARC'); break;
         case 'TEXT': case 'T': setTool('TEXT'); break;
@@ -2645,7 +2788,7 @@
         case 'EXPORT': exportSVG(); break;
         case 'IMAGE': exportImagePNG(); break;
         case 'DEL': case 'DELETE': deleteSelected(); break;
-        case 'HELP': logCli('Comandos: L, REC, C, A, TEXT, TR, M, CO, UNDO, SAVE, LOAD, EXPORT, IMAGE, CLEAR, DEL, HELP'); break;
+        case 'HELP': logCli('Comandos: L, REC, POLY, C, A, TEXT, TR, M, CO, UNDO, SAVE, LOAD, EXPORT, IMAGE, CLEAR, DEL, HELP'); break;
         default: logCli(`Comando no reconocido: '${cmd}'`);
       }
     }
