@@ -1,4 +1,4 @@
-# CadTec 2D - Web Engine Pro (Privado)
+# CadTec 2D (Privado)
 
 Repositorio de ingeniería y desarrollo para el motor CAD 2D basado en navegador, optimizado para trazados técnicos, gestión topográfica de áreas/perímetro, metrados de construcción y control por capas.
 
@@ -54,4 +54,4 @@ Repositorio de ingeniería y desarrollo para el motor CAD 2D basado en navegador
 * **Mejora Gráfica en Capturas:** Escalado y filtrado de alta resolución en la función `exportImagePNG()` para preservar la nitidez de cotas, textos y geometrías.
 
 ---
-*Documentación interna confidencial — CadTec 2D Engine.*
+*Documentación interna confidencial — CadTec 2D.*
